@@ -1,9 +1,9 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run Tests" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="weather-thingy-data-service" />
-    <working_directory value="$PROJECT_DIR$/src" />
+    <working_directory value="$PROJECT_DIR$" />
     <kind value="DIRECTORY" />
-    <directory value="$PROJECT_DIR$/src" />
+    <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <RunnerSettings RunnerId="GoRunner" />
     <ConfigurationWrapper RunnerId="GoRunner" />

@@ -1,7 +1,20 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/julienschmidt/httprouter"
+)
+
+func helloWorld(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Fprint(w, "Hello, world!")
+}
 
 func main() {
-	log.Printf("Hello, World!")
+	router := httprouter.New()
+	router.GET("/", helloWorld)
+
+	log.Fatal(http.ListenAndServe(":8080", router))
 }

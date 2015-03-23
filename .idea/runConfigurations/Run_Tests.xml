@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Run Tests" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="weather-thingy-data-service" />
+    <working_directory value="$PROJECT_DIR$/src" />
+    <kind value="DIRECTORY" />
+    <directory value="$PROJECT_DIR$/src" />
+    <filePath value="$PROJECT_DIR$" />
+    <RunnerSettings RunnerId="GoRunner" />
+    <ConfigurationWrapper RunnerId="GoRunner" />
+    <method>
+      <option name="GoBeforeRunTask" enabled="true" command="fmt" />
+    </method>
+  </configuration>
+</component>

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -12,10 +11,6 @@ import (
 )
 
 var server *graceful.Server
-
-func helloWorld(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	fmt.Fprint(w, "Hello, world!")
-}
 
 func startServer() {
 	router := httprouter.New()
@@ -38,5 +33,6 @@ func stopServer() {
 }
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	startServer()
 }

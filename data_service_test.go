@@ -13,7 +13,7 @@ func urlFor(path string) string {
 	return "http://localhost:8080" + path
 }
 
-func Test(t *testing.T) {
+func TestDataService(t *testing.T) {
 	g := Goblin(t)
 	RegisterFailHandler(func(m string, _ ...int) { g.Fail(m) })
 

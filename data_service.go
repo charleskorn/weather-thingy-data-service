@@ -34,5 +34,21 @@ func stopServer() {
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("Starting up...")
+
+	log.Println("Connecting to database...")
+	db, err := connectToDatabase("postgres://user:pass@localhost/weatherthingy?sslmode=disable")
+
+	if err != nil {
+		log.Fatal("Could not connect to database.", err)
+	}
+
+	if err := db.runMigrations(); err != nil {
+		log.Fatal("Could not apply migrations to database.", err)
+	}
+
+	log.Println("Starting server...")
 	startServer()
+
+	log.Println("Shut down normally.")
 }

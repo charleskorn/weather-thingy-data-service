@@ -1,24 +1,18 @@
 package main
 
 import (
-	"net/http/httptest"
-	"testing"
-
-	. "github.com/franela/goblin"
-	. "github.com/onsi/gomega"
 	"io/ioutil"
+	"net/http/httptest"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func TestHelloWorld(t *testing.T) {
-	g := Goblin(t)
-	RegisterFailHandler(func(m string, _ ...int) { g.Fail(m) })
-
-	g.Describe("Hello World request handler", func() {
-		g.It("returns the welcome message", func() {
-			resp := httptest.NewRecorder()
-			helloWorld(resp, nil, nil)
-			body, _ := ioutil.ReadAll(resp.Body)
-			Expect(string(body)).To(Equal("Hello, world!"))
-		})
+var _ = Describe("Hello World request handler", func() {
+	It("returns the welcome message", func() {
+		resp := httptest.NewRecorder()
+		helloWorld(resp, nil, nil)
+		body, _ := ioutil.ReadAll(resp.Body)
+		Expect(string(body)).To(Equal("Hello, world!"))
 	})
-}
+})

@@ -3,9 +3,8 @@ package main
 import (
 	"io/ioutil"
 	"net/http"
-	"testing"
 
-	. "github.com/franela/goblin"
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
@@ -17,28 +16,23 @@ func urlFor(path string) string {
 	return "http://localhost" + TESTING_ADDRESS + path
 }
 
-func TestDataService(t *testing.T) {
-	g := Goblin(t)
-	RegisterFailHandler(func(m string, _ ...int) { g.Fail(m) })
+var _ = Describe("HTTP endpoints", func() {
+	BeforeEach(func() {
+		go startServer(TESTING_ADDRESS)
+	})
 
-	g.Describe("HTTP endpoints", func() {
-		g.BeforeEach(func() {
-			go startServer(TESTING_ADDRESS)
-		})
+	AfterEach(func() {
+		stopServer()
+	})
 
-		g.AfterEach(func() {
-			stopServer()
-		})
-
-		g.Describe("/", func() {
-			g.It("returns the welcome message", func() {
-				resp, err := http.Get(urlFor("/"))
-				Expect(err).To(BeNil())
-				defer resp.Body.Close()
-				body, err := ioutil.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
-				Expect(string(body)).To(Equal("Hello, world!"))
-			})
+	Describe("/", func() {
+		It("returns the welcome message", func() {
+			resp, err := http.Get(urlFor("/"))
+			Expect(err).To(BeNil())
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			Expect(err).To(BeNil())
+			Expect(string(body)).To(Equal("Hello, world!"))
 		})
 	})
-}
+})

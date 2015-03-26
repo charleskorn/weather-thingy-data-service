@@ -20,13 +20,13 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err != nil {
-		log.Printf("Could not read request: ", err)
+		log.Println("Could not read request: ", err)
 		http.Error(w, "Could not read request.", http.StatusInternalServerError)
 		return
 	}
 
 	if err := json.Unmarshal(body, &agent); err != nil {
-		log.Printf("Could not unmarshal request: ", err)
+		log.Println("Could not unmarshal request: ", err)
 		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
 		return
 	}
@@ -37,7 +37,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	}
 
 	if err := db.CreateAgent(&agent); err != nil {
-		log.Printf("Could not create new agent: ", err)
+		log.Println("Could not create new agent: ", err)
 		http.Error(w, "Could not create new agent.", http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +45,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	response, err := json.Marshal(map[string]interface{}{"id": agent.AgentID})
 
 	if err != nil {
-		log.Printf("Could not generate response: ", err)
+		log.Println("Could not generate response: ", err)
 		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
 		return
 	}

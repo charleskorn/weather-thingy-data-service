@@ -11,6 +11,8 @@ type Database interface {
 	RunMigrations() (int, error)
 	Close()
 	DB() *sql.DB
+
+	CreateAgent(agent *Agent) error
 }
 
 type PostgresDatabase struct {
@@ -53,4 +55,9 @@ func (d *PostgresDatabase) Close() {
 
 func (d *PostgresDatabase) DB() *sql.DB {
 	return d.DatabaseHandle
+}
+
+func (d *PostgresDatabase) CreateAgent(agent *Agent) error {
+	// TODO
+	return nil
 }

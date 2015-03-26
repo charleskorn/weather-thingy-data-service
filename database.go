@@ -58,6 +58,6 @@ func (d *PostgresDatabase) DB() *sql.DB {
 }
 
 func (d *PostgresDatabase) CreateAgent(agent *Agent) error {
-	// TODO
-	return nil
+	row := d.DB().QueryRow("INSERT INTO agents (name, created) VALUES ($1, $2) RETURNING agent_id", agent.Name, agent.Created)
+	return row.Scan(&agent.AgentID)
 }

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -86,6 +87,24 @@ var _ = Describe("Database", func() {
 	Context("when connected to a database with all migrations applied", func() {
 		BeforeEach(func() {
 			db.RunMigrations()
+		})
+
+		It("saves new agents to the database", func() {
+			created := time.Now().Round(time.Millisecond)
+			agent := &Agent{Name: "Test agent", Created: created}
+
+			err := db.CreateAgent(agent)
+			Expect(err).To(BeNil())
+			Expect(agent.AgentID).ToNot(Equal(0))
+
+			var actualName string
+			var actualCreated time.Time
+			row := db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1", agent.AgentID)
+			err = row.Scan(&actualName, &actualCreated)
+
+			Expect(err).To(BeNil())
+			Expect(actualName).To(Equal("Test agent"))
+			Expect(actualCreated).To(BeTemporally("==", created))
 		})
 	})
 })

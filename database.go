@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"log"
 
 	_ "github.com/lib/pq"
 	"github.com/rubenv/sql-migrate"
@@ -30,16 +29,14 @@ func connectToDatabase(dataSourceName string) (*Database, error) {
 	return &Database{DatabaseHandle: db}, nil
 }
 
-func (d *Database) runMigrations() error {
-	log.Println("Checking for pending migrations...")
-
+func (d *Database) runMigrations() (int, error) {
 	migrationSource := getMigrationSource()
 
 	n, err := migrate.Exec(d.DatabaseHandle, "postgres", migrationSource, migrate.Up)
-	if err != nil {
-		return err
-	}
-	log.Printf("Applied %d migrations.", n)
 
-	return nil
+	if err != nil {
+		return 0, err
+	}
+
+	return n, nil
 }

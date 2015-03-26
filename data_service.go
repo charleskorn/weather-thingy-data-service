@@ -43,8 +43,12 @@ func main() {
 		log.Fatal("Could not connect to database.", err)
 	}
 
-	if err := db.runMigrations(); err != nil {
+	log.Println("Checking for pending migrations...")
+
+	if n, err := db.runMigrations(); err != nil {
 		log.Fatal("Could not apply migrations to database.", err)
+	} else {
+		log.Printf("Applied %d migrations.", n)
 	}
 
 	log.Println("Starting server...")

@@ -78,7 +78,7 @@ func TestDatabase(t *testing.T) {
 				migrations, _ := getMigrationSource().FindMigrations()
 				expectedMigrationCount := len(migrations)
 
-				err := db.runMigrations()
+				_, err := db.runMigrations()
 				Expect(err).To(BeNil())
 
 				var actualMigrationCount int

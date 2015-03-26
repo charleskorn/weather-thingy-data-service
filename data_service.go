@@ -12,16 +12,20 @@ import (
 	"os"
 )
 
-var server *graceful.Server
-var dataSourceName string
+type CommandLineArgs struct {
+	ServerAddress  string
+	DataSourceName string
+}
 
-func startServer() {
+var server *graceful.Server
+
+func startServer(serverAddress string) {
 	router := httprouter.New()
 	router.GET("/", helloWorld)
 
 	server = &graceful.Server{
 		Timeout: 10 * time.Second,
-		Server:  &http.Server{Addr: ":8080", Handler: router},
+		Server:  &http.Server{Addr: serverAddress, Handler: router},
 	}
 
 	if err := server.ListenAndServe(); err != nil {
@@ -35,20 +39,25 @@ func stopServer() {
 	server.Stop(10 * time.Second)
 }
 
-func readOptions() {
+func readOptions() CommandLineArgs {
+	var args CommandLineArgs
+
 	flagSet := flag.NewFlagSet("weather-thingy-data-service", flag.ExitOnError)
-	flagSet.StringVar(&dataSourceName, "dataSource", "postgres://weatherthingy@localhost/weatherthingy?sslmode=disable", "The data source URL to use.")
+	flagSet.StringVar(&args.ServerAddress, "address", ":8080", "The port (and optional address) the server should listen on.")
+	flagSet.StringVar(&args.DataSourceName, "dataSource", "postgres://weatherthingy@localhost/weatherthingy?sslmode=disable", "The data source URL to use.")
 	flagSet.Parse(os.Args[1:])
+
+	return args
 }
 
 func main() {
-	readOptions()
+	args := readOptions()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("Starting up...")
 
 	log.Println("Connecting to database...")
-	db, err := connectToDatabase(dataSourceName)
+	db, err := connectToDatabase(args.DataSourceName)
 
 	if err != nil {
 		log.Fatal("Could not connect to database: ", err)
@@ -63,7 +72,7 @@ func main() {
 	}
 
 	log.Println("Starting server...")
-	startServer()
+	startServer(args.ServerAddress)
 
 	log.Println("Shutting down...")
 	db.Close()

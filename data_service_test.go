@@ -9,8 +9,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	TESTING_ADDRESS = ":8081"
+)
+
 func urlFor(path string) string {
-	return "http://localhost:8080" + path
+	return "http://localhost" + TESTING_ADDRESS + path
 }
 
 func TestDataService(t *testing.T) {
@@ -19,7 +23,7 @@ func TestDataService(t *testing.T) {
 
 	g.Describe("HTTP endpoints", func() {
 		g.BeforeEach(func() {
-			go startServer()
+			go startServer(TESTING_ADDRESS)
 		})
 
 		g.AfterEach(func() {

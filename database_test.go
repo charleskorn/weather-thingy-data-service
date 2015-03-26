@@ -43,10 +43,12 @@ var _ = Describe("Database", func() {
 
 	Describe("connectToDatabase", func() {
 		It("connects to the database", func() {
-			db, err := connectToDatabase(testDataSourceName)
+			testConnection, err := connectToDatabase(testDataSourceName)
 
 			Expect(err).To(BeNil())
-			Expect(db).ToNot(BeNil())
+			defer testConnection.Close()
+
+			Expect(testConnection).ToNot(BeNil())
 		})
 	})
 

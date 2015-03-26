@@ -48,7 +48,6 @@ func main() {
 	log.Println("Starting up...")
 
 	log.Println("Connecting to database...")
-	log.Println(dataSourceName)
 	db, err := connectToDatabase(dataSourceName)
 
 	if err != nil {

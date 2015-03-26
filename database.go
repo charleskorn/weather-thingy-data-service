@@ -7,7 +7,13 @@ import (
 	"github.com/rubenv/sql-migrate"
 )
 
-type Database struct {
+type Database interface {
+	RunMigrations() (int, error)
+	Close()
+	DB() *sql.DB
+}
+
+type PostgresDatabase struct {
 	DatabaseHandle *sql.DB
 }
 
@@ -19,17 +25,17 @@ func getMigrationSource() migrate.MigrationSource {
 	}
 }
 
-func connectToDatabase(dataSourceName string) (*Database, error) {
+func connectToDatabase(dataSourceName string) (Database, error) {
 	db, err := sql.Open("postgres", dataSourceName)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &Database{DatabaseHandle: db}, nil
+	return &PostgresDatabase{DatabaseHandle: db}, nil
 }
 
-func (d *Database) runMigrations() (int, error) {
+func (d *PostgresDatabase) RunMigrations() (int, error) {
 	migrationSource := getMigrationSource()
 
 	n, err := migrate.Exec(d.DatabaseHandle, "postgres", migrationSource, migrate.Up)
@@ -39,4 +45,12 @@ func (d *Database) runMigrations() (int, error) {
 	}
 
 	return n, nil
+}
+
+func (d *PostgresDatabase) Close() {
+	d.DatabaseHandle.Close()
+}
+
+func (d *PostgresDatabase) DB() *sql.DB {
+	return d.DatabaseHandle
 }

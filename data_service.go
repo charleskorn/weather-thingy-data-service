@@ -56,7 +56,7 @@ func main() {
 
 	log.Println("Checking for pending migrations...")
 
-	if n, err := db.runMigrations(); err != nil {
+	if n, err := db.RunMigrations(); err != nil {
 		log.Fatal("Could not apply migrations to database: ", err)
 	} else {
 		log.Printf("Applied %d migrations.", n)
@@ -64,6 +64,9 @@ func main() {
 
 	log.Println("Starting server...")
 	startServer()
+
+	log.Println("Shutting down...")
+	db.Close()
 
 	log.Println("Shut down normally.")
 }

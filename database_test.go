@@ -20,7 +20,7 @@ func TestDatabase(t *testing.T) {
 	testDataSourceName := "postgres://tests@localhost/weatherthingytest?sslmode=disable"
 
 	g.Describe("Database", func() {
-		var db *Database
+		var db Database
 
 		g.Before(func() {
 			if envDataSource := os.Getenv("WEATHER_THINGY_TEST_DATA_SOURCE"); envDataSource != "" {
@@ -40,7 +40,7 @@ func TestDatabase(t *testing.T) {
 		})
 
 		g.AfterEach(func() {
-			db.DatabaseHandle.Close()
+			db.Close()
 			removeTestDatabase(testDataSourceName, false)
 		})
 
@@ -50,7 +50,6 @@ func TestDatabase(t *testing.T) {
 
 				Expect(err).To(BeNil())
 				Expect(db).ToNot(BeNil())
-				Expect(db.DatabaseHandle).ToNot(BeNil())
 			})
 		})
 
@@ -78,11 +77,11 @@ func TestDatabase(t *testing.T) {
 				migrations, _ := getMigrationSource().FindMigrations()
 				expectedMigrationCount := len(migrations)
 
-				_, err := db.runMigrations()
+				_, err := db.RunMigrations()
 				Expect(err).To(BeNil())
 
 				var actualMigrationCount int
-				err = db.DatabaseHandle.QueryRow("SELECT COUNT(*) FROM gorp_migrations;").Scan(&actualMigrationCount)
+				err = db.DB().QueryRow("SELECT COUNT(*) FROM gorp_migrations;").Scan(&actualMigrationCount)
 				Expect(err).To(BeNil())
 				Expect(actualMigrationCount).To(Equal(expectedMigrationCount))
 			})

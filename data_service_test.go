@@ -18,7 +18,7 @@ func urlFor(path string) string {
 
 var _ = Describe("HTTP endpoints", func() {
 	BeforeEach(func() {
-		go startServer(TESTING_ADDRESS)
+		go startServer(Config{ServerAddress: TESTING_ADDRESS})
 	})
 
 	AfterEach(func() {

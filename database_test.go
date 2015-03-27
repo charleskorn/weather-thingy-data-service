@@ -14,18 +14,11 @@ import (
 )
 
 var _ = Describe("Database", func() {
-	testDataSourceName := "postgres://tests@localhost/weatherthingytest?sslmode=disable"
-
+	var testDataSourceName string
 	var db Database
 
 	BeforeEach(func() {
-		if envDataSource := os.Getenv("WEATHER_THINGY_TEST_DATA_SOURCE"); envDataSource != "" {
-			log.Println("Using data source from WEATHER_THINGY_TEST_DATA_SOURCE: " + envDataSource)
-			testDataSourceName = envDataSource
-		} else {
-			log.Println("Using default data source: " + testDataSourceName)
-		}
-
+		testDataSourceName = getTestDataSourceName()
 		removeTestDatabase(testDataSourceName, true)
 
 		var err error
@@ -110,6 +103,17 @@ var _ = Describe("Database", func() {
 		})
 	})
 })
+
+func getTestDataSourceName() string {
+	if envDataSource := os.Getenv("WEATHER_THINGY_TEST_DATA_SOURCE"); envDataSource != "" {
+		log.Println("Using data source from WEATHER_THINGY_TEST_DATA_SOURCE environment variable: " + envDataSource)
+		return envDataSource
+	} else {
+		defaultDataSource := "postgres://tests@localhost/weatherthingytest?sslmode=disable"
+		log.Println("Using default data source: " + defaultDataSource)
+		return defaultDataSource
+	}
+}
 
 func extractDatabaseName(dataSourceName string) (string, error) {
 	if url, err := url.Parse(dataSourceName); err != nil {

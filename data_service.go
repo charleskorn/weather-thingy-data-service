@@ -12,20 +12,20 @@ import (
 	"os"
 )
 
-type CommandLineArgs struct {
+type Config struct {
 	ServerAddress  string
 	DataSourceName string
 }
 
 var server *graceful.Server
 
-func startServer(serverAddress string) {
+func startServer(config Config) {
 	router := httprouter.New()
 	router.GET("/", helloWorld)
 
 	server = &graceful.Server{
 		Timeout: 10 * time.Second,
-		Server:  &http.Server{Addr: serverAddress, Handler: router},
+		Server:  &http.Server{Addr: config.ServerAddress, Handler: router},
 	}
 
 	if err := server.ListenAndServe(); err != nil {
@@ -39,8 +39,8 @@ func stopServer() {
 	server.Stop(10 * time.Second)
 }
 
-func readOptions() CommandLineArgs {
-	var args CommandLineArgs
+func readOptions() Config {
+	var args Config
 
 	flagSet := flag.NewFlagSet("weather-thingy-data-service", flag.ExitOnError)
 	flagSet.StringVar(&args.ServerAddress, "address", ":8080", "The port (and optional address) the server should listen on.")
@@ -51,13 +51,13 @@ func readOptions() CommandLineArgs {
 }
 
 func main() {
-	args := readOptions()
+	config := readOptions()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.Println("Starting up...")
 
 	log.Println("Connecting to database...")
-	db, err := connectToDatabase(args.DataSourceName)
+	db, err := connectToDatabase(config.DataSourceName)
 
 	if err != nil {
 		log.Fatal("Could not connect to database: ", err)
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	log.Println("Starting server...")
-	startServer(args.ServerAddress)
+	startServer(config)
 
 	log.Println("Shutting down...")
 	db.Close()

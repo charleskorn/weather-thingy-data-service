@@ -81,3 +81,7 @@ func withDatabaseTransaction(handler RouteWithDatabase, config Config) httproute
 func stopServer() {
 	server.Stop(SHUTDOWN_TIMEOUT)
 }
+
+func SimpleError(w http.ResponseWriter, code int) {
+	http.Error(w, http.StatusText(code), code)
+}

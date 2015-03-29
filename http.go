@@ -20,11 +20,11 @@ type RouteWithDatabase func(http.ResponseWriter, *http.Request, httprouter.Param
 func startServer(config Config) {
 	router := httprouter.New()
 	router.GET("/", helloWorld)
-	router.POST("/v1/agents", wrapRouteInDatabaseTransaction(postAgent, config))
+	router.POST("/v1/agents", withDatabaseTransaction(postAgent, config))
 
 	server = &graceful.Server{
 		Timeout: SHUTDOWN_TIMEOUT,
-		Server:  &http.Server{Addr: config.ServerAddress, Handler: router},
+		Server:  &http.Server{Addr: config.ServerAddress, Handler: LoggingRouter{Handler: router}},
 	}
 
 	if err := server.ListenAndServe(); err != nil {
@@ -34,7 +34,7 @@ func startServer(config Config) {
 	}
 }
 
-func wrapRouteInDatabaseTransaction(handler RouteWithDatabase, config Config) httprouter.Handle {
+func withDatabaseTransaction(handler RouteWithDatabase, config Config) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		db, err := connectToDatabase(config.DataSourceName)
 

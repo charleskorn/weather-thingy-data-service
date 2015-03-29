@@ -9,6 +9,7 @@ import (
 )
 
 func TestDataService(t *testing.T) {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "weather-thingy Data Service")

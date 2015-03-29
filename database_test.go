@@ -79,18 +79,134 @@ var _ = Describe("Database", func() {
 		})
 	})
 
+	Describe("BeginTransaction", func() {
+		Context("when there is no active transaction", func() {
+			It("does not return an error", func() {
+				Expect(db.BeginTransaction()).To(BeNil())
+			})
+
+			It("sets Transaction", func() {
+				db.BeginTransaction()
+				Expect(db.Transaction()).ToNot(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+		})
+
+		Context("when there is already an active transaction", func() {
+			It("returns an error", func() {
+				db.BeginTransaction()
+				Expect(db.BeginTransaction()).ToNot(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+		})
+	})
+
+	Describe("CommitTransaction", func() {
+		Context("when there is no active transaction", func() {
+			It("returns an error", func() {
+				Expect(db.CommitTransaction()).ToNot(BeNil())
+			})
+		})
+
+		Context("when there is an active transaction", func() {
+			BeforeEach(func() {
+				_, err := db.DB().Exec("CREATE TABLE temp (name VARCHAR(100));")
+				Expect(err).To(BeNil())
+				err = db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			It("does not return an error", func() {
+				Expect(db.CommitTransaction()).To(BeNil())
+			})
+
+			It("sets Transaction to nil", func() {
+				db.CommitTransaction()
+				Expect(db.Transaction()).To(BeNil())
+			})
+
+			It("applies changes made to the database", func() {
+				_, err := db.Transaction().Exec("INSERT INTO temp (name) VALUES ('test');")
+				Expect(err).To(BeNil())
+				var count int
+				err = db.Transaction().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.CommitTransaction()
+				Expect(err).To(BeNil())
+
+				err = db.DB().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+			})
+		})
+	})
+
+	Describe("RollbackTransaction", func() {
+		Context("when there is no active transaction", func() {
+			It("returns an error", func() {
+				Expect(db.RollbackTransaction()).ToNot(BeNil())
+			})
+		})
+
+		Context("when there is an active transaction", func() {
+			BeforeEach(func() {
+				_, err := db.DB().Exec("CREATE TABLE temp (name VARCHAR(100));")
+				Expect(err).To(BeNil())
+				err = db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			It("does not return an error", func() {
+				Expect(db.RollbackTransaction()).To(BeNil())
+			})
+
+			It("sets Transaction to nil", func() {
+				db.RollbackTransaction()
+				Expect(db.Transaction()).To(BeNil())
+			})
+
+			It("reverts changes made to the database", func() {
+				_, err := db.Transaction().Exec("INSERT INTO temp (name) VALUES ('test');")
+				Expect(err).To(BeNil())
+				var count int
+				err = db.Transaction().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(1))
+
+				err = db.RollbackTransaction()
+				Expect(err).To(BeNil())
+
+				err = db.DB().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
+				Expect(err).To(BeNil())
+				Expect(count).To(Equal(0))
+			})
+		})
+	})
+
 	Context("when connected to a database with all migrations applied", func() {
 		BeforeEach(func() {
 			db.RunMigrations()
+
 		})
 
 		It("saves new agents to the database", func() {
 			created := time.Now().Round(time.Millisecond)
 			agent := &Agent{Name: "Test agent", Created: created}
 
+			Expect(db.BeginTransaction()).To(BeNil())
 			err := db.CreateAgent(agent)
 			Expect(err).To(BeNil())
 			Expect(agent.AgentID).ToNot(Equal(0))
+
+			Expect(db.CommitTransaction()).To(BeNil())
 
 			var actualName string
 			var actualCreated time.Time

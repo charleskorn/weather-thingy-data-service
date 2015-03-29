@@ -33,13 +33,13 @@ var _ = Describe("Agent resource", func() {
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(body string, db Database) *httptest.ResponseRecorder {
+		var makeRequest = func(body string, db Database) (*httptest.ResponseRecorder, bool) {
 			request, _ := http.NewRequest("POST", "/blah", strings.NewReader(body))
 			response := httptest.NewRecorder()
 
-			postAgent(response, request, nil, db)
+			returnValue := postAgent(response, request, nil, db)
 
-			return response
+			return response, returnValue
 		}
 
 		var db *MockDatabase
@@ -51,10 +51,11 @@ var _ = Describe("Agent resource", func() {
 		Describe("when the request is valid", func() {
 			var response *httptest.ResponseRecorder
 			var responseBody string
+			var returnValue bool
 
 			BeforeEach(func() {
 				db.CreateAgentInfo.AgentIDToReturn = 1019
-				response = makeRequest(`{"name":"New agent name"}`, db)
+				response, returnValue = makeRequest(`{"name":"New agent name"}`, db)
 				responseBody = string(response.Body.Bytes())
 			})
 
@@ -67,7 +68,7 @@ var _ = Describe("Agent resource", func() {
 				agent := db.CreateAgentInfo.Calls[0]
 				Expect(agent.Name).To(Equal("New agent name"))
 				Expect(agent.AgentID).To(Equal(0))
-				Expect(agent.Created).ToNot(Equal(0))
+				Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
 			})
 
 			It("returns the newly created agent's ID", func() {
@@ -77,14 +78,19 @@ var _ = Describe("Agent resource", func() {
 			It("returns an appropriate Content-Type header", func() {
 				Expect(response.HeaderMap["Content-Type"]).To(Equal([]string{"application/json"}))
 			})
+
+			It("returns true to commit the transaction", func() {
+				Expect(returnValue).To(BeTrue())
+			})
 		})
 
 		Describe("when the request is invalid", func() {
 			Describe("because there is no name field", func() {
 				var response *httptest.ResponseRecorder
+				var returnValue bool
 
 				BeforeEach(func() {
-					response = makeRequest(`{}`, db)
+					response, returnValue = makeRequest(`{}`, db)
 				})
 
 				It("returns HTTP 400 response", func() {
@@ -93,14 +99,19 @@ var _ = Describe("Agent resource", func() {
 
 				It("does not save the agent to the database", func() {
 					Expect(len(db.CreateAgentInfo.Calls)).To(Equal(0))
+				})
+
+				It("returns false to rollback the transaction", func() {
+					Expect(returnValue).To(BeFalse())
 				})
 			})
 
 			Describe("because the name field is empty", func() {
 				var response *httptest.ResponseRecorder
+				var returnValue bool
 
 				BeforeEach(func() {
-					response = makeRequest(`{"name":""}`, db)
+					response, returnValue = makeRequest(`{"name":""}`, db)
 				})
 
 				It("returns HTTP 400 response", func() {
@@ -109,6 +120,10 @@ var _ = Describe("Agent resource", func() {
 
 				It("does not save the agent to the database", func() {
 					Expect(len(db.CreateAgentInfo.Calls)).To(Equal(0))
+				})
+
+				It("returns false to rollback the transaction", func() {
+					Expect(returnValue).To(BeFalse())
 				})
 			})
 		})

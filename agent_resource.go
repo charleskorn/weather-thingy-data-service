@@ -52,7 +52,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 		return false
 	}
 
-	w.Header().Add("Content-Type", "application/json")
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
 	w.Write(response)
 	return true

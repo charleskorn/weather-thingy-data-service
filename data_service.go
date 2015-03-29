@@ -45,7 +45,7 @@ func wrapRouteInDatabaseTransaction(handler RouteWithDatabase, config Config) ht
 
 		if err != nil {
 			log.Print("Could not connect to database: ", err)
-			http.Error(w, "", http.StatusInternalServerError)
+			SimpleError(w, http.StatusInternalServerError)
 			return
 		}
 
@@ -53,7 +53,7 @@ func wrapRouteInDatabaseTransaction(handler RouteWithDatabase, config Config) ht
 
 		if err := db.BeginTransaction(); err != nil {
 			log.Print("Could not begin transaction: ", err)
-			http.Error(w, "", http.StatusInternalServerError)
+			SimpleError(w, http.StatusInternalServerError)
 			return
 		}
 
@@ -63,13 +63,13 @@ func wrapRouteInDatabaseTransaction(handler RouteWithDatabase, config Config) ht
 		if commitTransaction {
 			if err := db.CommitTransaction(); err != nil {
 				log.Print("Could not commit transaction: ", err)
-				http.Error(w, "", http.StatusInternalServerError)
+				SimpleError(w, http.StatusInternalServerError)
 				return
 			}
 		} else {
 			if err := db.RollbackTransaction(); err != nil {
 				log.Print("Could not rollback transaction: ", err)
-				http.Error(w, "", http.StatusInternalServerError)
+				SimpleError(w, http.StatusInternalServerError)
 				return
 			}
 		}

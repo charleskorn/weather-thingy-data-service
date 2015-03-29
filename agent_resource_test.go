@@ -76,7 +76,7 @@ var _ = Describe("Agent resource", func() {
 			})
 
 			It("returns an appropriate Content-Type header", func() {
-				Expect(response.HeaderMap["Content-Type"]).To(Equal([]string{"application/json"}))
+				Expect(response.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
 			})
 
 			It("returns true to commit the transaction", func() {

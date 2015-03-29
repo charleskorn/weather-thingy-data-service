@@ -57,7 +57,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())

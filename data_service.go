@@ -18,6 +18,8 @@ type Config struct {
 	DataSourceName string
 }
 
+const SHUTDOWN_TIMEOUT = 2 * time.Second
+
 var server *graceful.Server
 
 type RouteWithDatabase func(http.ResponseWriter, *http.Request, httprouter.Params, Database) bool
@@ -28,7 +30,7 @@ func startServer(config Config) {
 	router.POST("/v1/agents", wrapRouteInDatabaseTransaction(postAgent, config))
 
 	server = &graceful.Server{
-		Timeout: 10 * time.Second,
+		Timeout: SHUTDOWN_TIMEOUT,
 		Server:  &http.Server{Addr: config.ServerAddress, Handler: router},
 	}
 
@@ -84,7 +86,7 @@ func wrapRouteInDatabaseTransaction(handler RouteWithDatabase, config Config) ht
 }
 
 func stopServer() {
-	server.Stop(10 * time.Second)
+	server.Stop(SHUTDOWN_TIMEOUT)
 }
 
 func readOptions() Config {

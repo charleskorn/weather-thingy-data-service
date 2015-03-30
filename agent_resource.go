@@ -17,7 +17,6 @@ type Agent struct {
 }
 
 func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db Database) bool {
-	var agent Agent
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err != nil {
@@ -25,6 +24,8 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 		http.Error(w, "Could not read request.", http.StatusInternalServerError)
 		return false
 	}
+
+	var agent Agent
 
 	if err := json.Unmarshal(body, &agent); err != nil {
 		log.Println("Could not unmarshal request: ", err)

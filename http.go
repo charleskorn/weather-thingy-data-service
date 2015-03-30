@@ -23,6 +23,7 @@ func startServer(config Config) {
 	router.GET("/", helloWorld)
 	router.POST("/v1/agents", withDatabaseTransaction(postAgent, config))
 	router.GET("/v1/agents", withDatabase(getAllAgents, config))
+	router.POST("/v1/variables", withDatabaseTransaction(postVariable, config))
 
 	server = &graceful.Server{
 		Timeout: SHUTDOWN_TIMEOUT,

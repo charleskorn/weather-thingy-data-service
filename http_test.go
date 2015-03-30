@@ -116,4 +116,38 @@ var _ = Describe("HTTP endpoints", func() {
 			})
 		})
 	})
+
+	Describe("/v1/variables", func() {
+		Context("POST", func() {
+			It("saves the variable to the database and returns the variable ID", func() {
+				resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)"}`))
+
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+
+				var response map[string]interface{}
+				err = json.Unmarshal(responseBytes, &response)
+
+				Expect(err).To(BeNil())
+				Expect(response).To(HaveKey("id"))
+
+				db, err := connectToDatabase(testDataSourceName)
+				Expect(err).To(BeNil())
+				defer db.Close()
+
+				id := int(response["id"].(float64))
+				var name, units string
+				var created time.Time
+				err = db.DB().QueryRow("SELECT name, units, created FROM variables WHERE variable_id = $1;", id).Scan(&name, &units, &created)
+				Expect(err).To(BeNil())
+				Expect(name).To(Equal("New variable name"))
+				Expect(units).To(Equal("seconds (s)"))
+				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
+			})
+		})
+	})
 })

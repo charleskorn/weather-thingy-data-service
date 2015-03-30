@@ -245,6 +245,30 @@ var _ = Describe("Database", func() {
 				Expect(agents[1].Created).To(BeTemporally("==", time.Date(2015, 2, 16, 20, 0, 0, 0, time.UTC)))
 			})
 		})
+
+		Describe("CreateVariable", func() {
+			It("saves new variables to the database", func() {
+				created := time.Now().Round(time.Millisecond)
+				variable := &Variable{Name: "Test variable", Units: "metres (m)", Created: created}
+
+				Expect(db.BeginTransaction()).To(BeNil())
+				err := db.CreateVariable(variable)
+				Expect(err).To(BeNil())
+				Expect(variable.VariableID).ToNot(Equal(0))
+
+				Expect(db.CommitTransaction()).To(BeNil())
+
+				var actualName, actualUnits string
+				var actualCreated time.Time
+				row := db.DB().QueryRow("SELECT name, units, created FROM variables WHERE variable_id = $1", variable.VariableID)
+				err = row.Scan(&actualName, &actualUnits, &actualCreated)
+
+				Expect(err).To(BeNil())
+				Expect(actualName).To(Equal("Test variable"))
+				Expect(actualUnits).To(Equal("metres (m)"))
+				Expect(actualCreated).To(BeTemporally("==", created))
+			})
+		})
 	})
 })
 

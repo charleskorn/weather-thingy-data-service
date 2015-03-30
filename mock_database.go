@@ -11,9 +11,15 @@ type GetAllAgentsInfo struct {
 	AgentsToReturn []Agent
 }
 
+type CreateVariableInfo struct {
+	Calls              []Variable
+	VariableIDToReturn int
+}
+
 type MockDatabase struct {
-	CreateAgentInfo  CreateAgentInfo
-	GetAllAgentsInfo GetAllAgentsInfo
+	CreateAgentInfo    CreateAgentInfo
+	GetAllAgentsInfo   GetAllAgentsInfo
+	CreateVariableInfo CreateVariableInfo
 }
 
 func (d *MockDatabase) RunMigrations() (int, error) {
@@ -53,4 +59,11 @@ func (d *MockDatabase) CreateAgent(agent *Agent) error {
 
 func (d *MockDatabase) GetAllAgents() ([]Agent, error) {
 	return d.GetAllAgentsInfo.AgentsToReturn, nil
+}
+
+func (d *MockDatabase) CreateVariable(variable *Variable) error {
+	d.CreateVariableInfo.Calls = append(d.CreateVariableInfo.Calls, *variable)
+	variable.VariableID = d.CreateVariableInfo.VariableIDToReturn
+
+	return nil
 }

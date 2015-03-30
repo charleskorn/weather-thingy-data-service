@@ -1,0 +1,67 @@
+package main
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/julienschmidt/httprouter"
+)
+
+type Variable struct {
+	VariableID int       `json:"id"`
+	Name       string    `json:"name"`
+	Units      string    `json:"units"`
+	Created    time.Time `json:"created"`
+}
+
+func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db Database) bool {
+	body, err := ioutil.ReadAll(r.Body)
+
+	if err != nil {
+		log.Println("Could not read request: ", err)
+		http.Error(w, "Could not read request.", http.StatusInternalServerError)
+		return false
+	}
+
+	var variable Variable
+
+	if err := json.Unmarshal(body, &variable); err != nil {
+		log.Println("Could not unmarshal request: ", err)
+		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
+		return false
+	}
+
+	if variable.Name == "" {
+		http.Error(w, "Must specify name.", http.StatusBadRequest)
+		return false
+	}
+
+	if variable.Units == "" {
+		http.Error(w, "Must specify units.", http.StatusBadRequest)
+		return false
+	}
+
+	variable.Created = time.Now()
+
+	if err := db.CreateVariable(&variable); err != nil {
+		log.Println("Could not create new variable: ", err)
+		http.Error(w, "Could not create new variable.", http.StatusInternalServerError)
+		return false
+	}
+
+	response, err := json.Marshal(map[string]interface{}{"id": variable.VariableID})
+
+	if err != nil {
+		log.Println("Could not generate response: ", err)
+		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
+		return false
+	}
+
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusCreated)
+	w.Write(response)
+	return true
+}

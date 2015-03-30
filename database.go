@@ -20,6 +20,7 @@ type Database interface {
 
 	CreateAgent(agent *Agent) error
 	GetAllAgents() ([]Agent, error)
+	CreateVariable(variable *Variable) error
 }
 
 type PostgresDatabase struct {
@@ -144,6 +145,15 @@ func (d *PostgresDatabase) GetAllAgents() ([]Agent, error) {
 	}
 
 	return agents, nil
+}
+
+func (d *PostgresDatabase) CreateVariable(variable *Variable) error {
+	if err := d.ensureTransaction(); err != nil {
+		return err
+	}
+
+	row := d.CurrentTransaction.QueryRow("INSERT INTO variables (name, units, created) VALUES ($1, $2, $3) RETURNING variable_id", variable.Name, variable.Units, variable.Created)
+	return row.Scan(&variable.VariableID)
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

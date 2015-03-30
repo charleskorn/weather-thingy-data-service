@@ -128,4 +128,30 @@ var _ = Describe("Agent resource", func() {
 			})
 		})
 	})
+
+	Describe("GET all request handler", func() {
+		var makeRequest = func(db Database) *httptest.ResponseRecorder {
+			request, _ := http.NewRequest("GET", "/blah", strings.NewReader(""))
+			response := httptest.NewRecorder()
+
+			getAllAgents(response, request, nil, db)
+
+			return response
+		}
+
+		var db *MockDatabase
+
+		BeforeEach(func() {
+			db = &MockDatabase{}
+			db.GetAllAgentsInfo.AgentsToReturn = []Agent{
+				Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
+			}
+		})
+
+		It("returns a list of all agents", func() {
+			resp := makeRequest(db)
+
+			Expect(string(resp.Body.Bytes())).To(Equal(`[{"id":1234,"name":"The name","created":"2015-03-27T08:00:00Z"}]`))
+		})
+	})
 })

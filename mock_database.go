@@ -7,8 +7,13 @@ type CreateAgentInfo struct {
 	AgentIDToReturn int
 }
 
+type GetAllAgentsInfo struct {
+	AgentsToReturn []Agent
+}
+
 type MockDatabase struct {
-	CreateAgentInfo CreateAgentInfo
+	CreateAgentInfo  CreateAgentInfo
+	GetAllAgentsInfo GetAllAgentsInfo
 }
 
 func (d *MockDatabase) RunMigrations() (int, error) {
@@ -44,4 +49,8 @@ func (d *MockDatabase) CreateAgent(agent *Agent) error {
 	agent.AgentID = d.CreateAgentInfo.AgentIDToReturn
 
 	return nil
+}
+
+func (d *MockDatabase) GetAllAgents() ([]Agent, error) {
+	return d.GetAllAgentsInfo.AgentsToReturn, nil
 }

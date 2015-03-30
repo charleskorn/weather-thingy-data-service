@@ -81,5 +81,39 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
 			})
 		})
+
+		Context("GET", func() {
+			It("returns all agents", func() {
+				db, err := connectToDatabase(testDataSourceName)
+				Expect(err).To(BeNil())
+				defer db.Close()
+
+				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');")
+				Expect(err).To(BeNil())
+				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');")
+				Expect(err).To(BeNil())
+
+				resp, err := http.Get(urlFor("/v1/agents"))
+
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+
+				var response []map[string]interface{}
+				err = json.Unmarshal(responseBytes, &response)
+
+				Expect(err).To(BeNil())
+				Expect(response).To(HaveLen(2))
+				Expect(response[0]).To(HaveKeyWithValue("id", float64(1)))
+				Expect(response[0]).To(HaveKeyWithValue("name", "Test Agent 1"))
+				Expect(response[0]).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC))))
+				Expect(response[1]).To(HaveKeyWithValue("id", float64(2)))
+				Expect(response[1]).To(HaveKeyWithValue("name", "Test Agent 2"))
+				Expect(response[1]).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 2, 16, 20, 0, 0, 0, time.UTC))))
+			})
+		})
 	})
 })

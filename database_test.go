@@ -194,28 +194,56 @@ var _ = Describe("Database", func() {
 	Context("when connected to a database with all migrations applied", func() {
 		BeforeEach(func() {
 			db.RunMigrations()
-
 		})
 
-		It("saves new agents to the database", func() {
-			created := time.Now().Round(time.Millisecond)
-			agent := &Agent{Name: "Test agent", Created: created}
+		Describe("CreateAgent", func() {
+			It("saves new agents to the database", func() {
+				created := time.Now().Round(time.Millisecond)
+				agent := &Agent{Name: "Test agent", Created: created}
 
-			Expect(db.BeginTransaction()).To(BeNil())
-			err := db.CreateAgent(agent)
-			Expect(err).To(BeNil())
-			Expect(agent.AgentID).ToNot(Equal(0))
+				Expect(db.BeginTransaction()).To(BeNil())
+				err := db.CreateAgent(agent)
+				Expect(err).To(BeNil())
+				Expect(agent.AgentID).ToNot(Equal(0))
 
-			Expect(db.CommitTransaction()).To(BeNil())
+				Expect(db.CommitTransaction()).To(BeNil())
 
-			var actualName string
-			var actualCreated time.Time
-			row := db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1", agent.AgentID)
-			err = row.Scan(&actualName, &actualCreated)
+				var actualName string
+				var actualCreated time.Time
+				row := db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1", agent.AgentID)
+				err = row.Scan(&actualName, &actualCreated)
 
-			Expect(err).To(BeNil())
-			Expect(actualName).To(Equal("Test agent"))
-			Expect(actualCreated).To(BeTemporally("==", created))
+				Expect(err).To(BeNil())
+				Expect(actualName).To(Equal("Test agent"))
+				Expect(actualCreated).To(BeTemporally("==", created))
+			})
+		})
+
+		Describe("GetAllAgents", func() {
+			It("returns an empty list if there are no agents in the database", func() {
+				agents, err := db.GetAllAgents()
+
+				Expect(err).To(BeNil())
+				Expect(agents).To(BeEmpty())
+			})
+
+			It("gets all agents from the database", func() {
+				_, err := db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');")
+				Expect(err).To(BeNil())
+				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');")
+				Expect(err).To(BeNil())
+
+				agents, err := db.GetAllAgents()
+
+				Expect(err).To(BeNil())
+				Expect(agents).To(HaveLen(2))
+				Expect(agents[0].AgentID).To(Equal(1))
+				Expect(agents[0].Name).To(Equal("Test Agent 1"))
+				Expect(agents[0].Created).To(BeTemporally("==", time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC)))
+				Expect(agents[1].AgentID).To(Equal(2))
+				Expect(agents[1].Name).To(Equal("Test Agent 2"))
+				Expect(agents[1].Created).To(BeTemporally("==", time.Date(2015, 2, 16, 20, 0, 0, 0, time.UTC)))
+			})
 		})
 	})
 })

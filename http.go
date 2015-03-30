@@ -15,12 +15,14 @@ const SHUTDOWN_TIMEOUT = 2 * time.Second
 
 var server *graceful.Server
 
-type RouteWithDatabase func(http.ResponseWriter, *http.Request, httprouter.Params, Database) bool
+type RouteWithDatabase func(http.ResponseWriter, *http.Request, httprouter.Params, Database)
+type RouteWithDatabaseTransaction func(http.ResponseWriter, *http.Request, httprouter.Params, Database) bool
 
 func startServer(config Config) {
 	router := httprouter.New()
 	router.GET("/", helloWorld)
 	router.POST("/v1/agents", withDatabaseTransaction(postAgent, config))
+	router.GET("/v1/agents", withDatabase(getAllAgents, config))
 
 	server = &graceful.Server{
 		Timeout: SHUTDOWN_TIMEOUT,
@@ -34,7 +36,7 @@ func startServer(config Config) {
 	}
 }
 
-func withDatabaseTransaction(handler RouteWithDatabase, config Config) httprouter.Handle {
+func withDatabase(handler RouteWithDatabase, config Config) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		db, err := connectToDatabase(config.DataSourceName)
 
@@ -46,6 +48,12 @@ func withDatabaseTransaction(handler RouteWithDatabase, config Config) httproute
 
 		defer db.Close()
 
+		handler(w, r, p, db)
+	}
+}
+
+func withDatabaseTransaction(handler RouteWithDatabaseTransaction, config Config) httprouter.Handle {
+	wrapped := func(w http.ResponseWriter, r *http.Request, p httprouter.Params, db Database) {
 		if err := db.BeginTransaction(); err != nil {
 			log.Print("Could not begin transaction: ", err)
 			SimpleError(w, http.StatusInternalServerError)
@@ -76,6 +84,8 @@ func withDatabaseTransaction(handler RouteWithDatabase, config Config) httproute
 		w.WriteHeader(response.Code)
 		w.Write(response.Body.Bytes())
 	}
+
+	return withDatabase(wrapped, config)
 }
 
 func stopServer() {

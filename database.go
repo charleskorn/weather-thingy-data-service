@@ -19,6 +19,7 @@ type Database interface {
 	Transaction() *sql.Tx
 
 	CreateAgent(agent *Agent) error
+	GetAllAgents() ([]Agent, error)
 }
 
 type PostgresDatabase struct {
@@ -116,6 +117,33 @@ func (d *PostgresDatabase) CreateAgent(agent *Agent) error {
 
 	row := d.CurrentTransaction.QueryRow("INSERT INTO agents (name, created) VALUES ($1, $2) RETURNING agent_id", agent.Name, agent.Created)
 	return row.Scan(&agent.AgentID)
+}
+
+func (d *PostgresDatabase) GetAllAgents() ([]Agent, error) {
+	rows, err := d.DB().Query("SELECT agent_id, name, created FROM agents;")
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	agents := []Agent{}
+
+	for rows.Next() {
+		agent := Agent{}
+
+		if err := rows.Scan(&agent.AgentID, &agent.Name, &agent.Created); err != nil {
+			return nil, err
+		}
+
+		agents = append(agents, agent)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return agents, nil
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/julienschmidt/httprouter"
 )
 
 type Agent struct {
@@ -56,4 +57,27 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	w.WriteHeader(http.StatusCreated)
 	w.Write(response)
 	return true
+}
+
+func getAllAgents(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db Database) {
+	agents, err := db.GetAllAgents()
+
+	if err != nil {
+		log.Println("Could not get all agents: ", err)
+		http.Error(w, "Could not get all agents.", http.StatusInternalServerError)
+		return
+	}
+
+	response, err := json.Marshal(agents)
+
+	if err != nil {
+		log.Println("Could not generate response: ", err)
+		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(response)
+	return
 }

@@ -86,12 +86,12 @@ var _ = Describe("Variables resource", func() {
 		})
 
 		Describe("when the request is invalid", func() {
-			Describe("because there are no fields", func() {
+			TheRequestFails := func(request string) {
 				var response *httptest.ResponseRecorder
 				var returnValue bool
 
 				BeforeEach(func() {
-					response, returnValue = makeRequest(`{}`, db)
+					response, returnValue = makeRequest(request, db)
 				})
 
 				It("returns HTTP 400 response", func() {
@@ -105,90 +105,26 @@ var _ = Describe("Variables resource", func() {
 				It("returns false to rollback the transaction", func() {
 					Expect(returnValue).To(BeFalse())
 				})
+			}
+
+			Describe("because there are no fields", func() {
+				TheRequestFails(`{}`)
 			})
 
 			Describe("because the name field is empty", func() {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
-				BeforeEach(func() {
-					response, returnValue = makeRequest(`{"name":"","units":"something"}`, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the variable to the database", func() {
-					Expect(len(db.CreateVariableInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
-				})
+				TheRequestFails(`{"name":"","units":"something"}`)
 			})
 
 			Describe("because the name field is missing", func() {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
-				BeforeEach(func() {
-					response, returnValue = makeRequest(`{"units":"something"}`, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the variable to the database", func() {
-					Expect(len(db.CreateVariableInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
-				})
+				TheRequestFails(`{"units":"something"}`)
 			})
 
 			Describe("because the units field is empty", func() {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
-				BeforeEach(func() {
-					response, returnValue = makeRequest(`{"name":"something","units":""}`, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the variable to the database", func() {
-					Expect(len(db.CreateVariableInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
-				})
+				TheRequestFails(`{"name":"something","units":""}`)
 			})
 
 			Describe("because the units field is missing", func() {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
-				BeforeEach(func() {
-					response, returnValue = makeRequest(`{"name":"something"}`, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the variable to the database", func() {
-					Expect(len(db.CreateVariableInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
-				})
+				TheRequestFails(`{"name":"something"}`)
 			})
 		})
 	})

@@ -20,7 +20,6 @@ type RouteWithDatabaseTransaction func(http.ResponseWriter, *http.Request, httpr
 
 func startServer(config Config) {
 	router := httprouter.New()
-	router.GET("/", helloWorld)
 	router.POST("/v1/agents", withDatabaseTransaction(postAgent, config))
 	router.GET("/v1/agents", withDatabase(getAllAgents, config))
 	router.POST("/v1/variables", withDatabaseTransaction(postVariable, config))

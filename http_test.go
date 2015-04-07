@@ -39,17 +39,6 @@ var _ = Describe("HTTP endpoints", func() {
 		removeTestDatabase(testDataSourceName, false)
 	})
 
-	Describe("/", func() {
-		It("returns the welcome message", func() {
-			resp, err := http.Get(urlFor("/"))
-			Expect(err).To(BeNil())
-			defer resp.Body.Close()
-			body, err := ioutil.ReadAll(resp.Body)
-			Expect(err).To(BeNil())
-			Expect(string(body)).To(Equal("Hello, world!"))
-		})
-	})
-
 	Describe("/v1/agents", func() {
 		Context("POST", func() {
 			It("saves the agent to the database and returns the agent ID", func() {

@@ -269,6 +269,41 @@ var _ = Describe("Database", func() {
 				Expect(actualCreated).To(BeTemporally("==", created))
 			})
 		})
+
+		Describe("AddDataPoint", func() {
+			agentID := 2
+			variableID := 6
+
+			BeforeEach(func() {
+				_, err := db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", agentID, "Agent 2 name")
+				Expect(err).To(BeNil())
+				_, err = db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", variableID, "Variable 6 name", "Variable 6 units")
+				Expect(err).To(BeNil())
+			})
+
+			It("adds the data point to the database", func() {
+				dataTime := time.Now().Round(time.Millisecond)
+				dataPoint := &DataPoint{AgentID: agentID, VariableID: variableID, Time: dataTime, Value: 100.67}
+
+				Expect(db.BeginTransaction()).To(BeNil())
+				err := db.AddDataPoint(dataPoint)
+				Expect(err).To(BeNil())
+
+				Expect(db.CommitTransaction()).To(BeNil())
+
+				var actualAgentID, actualVariableID int
+				var actualValue float64
+				var actualTime time.Time
+				row := db.DB().QueryRow("SELECT agent_id, variable_id, time, value FROM data")
+				err = row.Scan(&actualAgentID, &actualVariableID, &actualTime, &actualValue)
+
+				Expect(err).To(BeNil())
+				Expect(actualAgentID).To(Equal(agentID))
+				Expect(actualVariableID).To(Equal(variableID))
+				Expect(actualTime).To(BeTemporally("==", dataTime))
+				Expect(actualValue).To(Equal(100.67))
+			})
+		})
 	})
 })
 

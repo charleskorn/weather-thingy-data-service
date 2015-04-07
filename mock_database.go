@@ -67,3 +67,7 @@ func (d *MockDatabase) CreateVariable(variable *Variable) error {
 
 	return nil
 }
+
+func (d *MockDatabase) AddDataPoint(dataPoint *DataPoint) error {
+	panic("Cannot call AddDataPoint() on a MockDatabase")
+}

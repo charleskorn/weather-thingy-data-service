@@ -44,6 +44,27 @@ var _ = Describe("Agent resource", func() {
 
 		var db *MockDatabase
 
+		var TheRequestFails = func(request string) {
+			var response *httptest.ResponseRecorder
+			var returnValue bool
+
+			BeforeEach(func() {
+				response, returnValue = makeRequest(request, db)
+			})
+
+			It("returns HTTP 400 response", func() {
+				Expect(response.Code).To(Equal(http.StatusBadRequest))
+			})
+
+			It("does not save the agent to the database", func() {
+				Expect(len(db.CreateAgentInfo.Calls)).To(Equal(0))
+			})
+
+			It("returns false to rollback the transaction", func() {
+				Expect(returnValue).To(BeFalse())
+			})
+		}
+
 		BeforeEach(func() {
 			db = &MockDatabase{}
 		})
@@ -86,45 +107,11 @@ var _ = Describe("Agent resource", func() {
 
 		Describe("when the request is invalid", func() {
 			Describe("because there is no name field", func() {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
-				BeforeEach(func() {
-					response, returnValue = makeRequest(`{}`, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the agent to the database", func() {
-					Expect(len(db.CreateAgentInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
-				})
+				TheRequestFails(`{}`)
 			})
 
 			Describe("because the name field is empty", func() {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
-				BeforeEach(func() {
-					response, returnValue = makeRequest(`{"name":""}`, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the agent to the database", func() {
-					Expect(len(db.CreateAgentInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
-				})
+				TheRequestFails(`{"name":""}`)
 			})
 		})
 	})

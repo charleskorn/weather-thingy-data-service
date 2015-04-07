@@ -246,6 +246,32 @@ var _ = Describe("Database", func() {
 			})
 		})
 
+		Describe("CheckAgentIDExists", func() {
+			BeforeEach(func() {
+				_, err := db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 2, "Agent 2 name")
+				Expect(err).To(BeNil())
+
+				err = db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+
+			It("returns true if the agent exists", func() {
+				exists, err := db.CheckAgentIDExists(2)
+				Expect(err).To(BeNil())
+				Expect(exists).To(BeTrue())
+			})
+
+			It("returns false if the agent does not exist", func() {
+				exists, err := db.CheckAgentIDExists(23)
+				Expect(err).To(BeNil())
+				Expect(exists).To(BeFalse())
+			})
+		})
+
 		Describe("CreateVariable", func() {
 			It("saves new variables to the database", func() {
 				created := time.Now().Round(time.Millisecond)
@@ -283,7 +309,7 @@ var _ = Describe("Database", func() {
 
 			It("adds the data point to the database", func() {
 				dataTime := time.Now().Round(time.Millisecond)
-				dataPoint := &DataPoint{AgentID: agentID, VariableID: variableID, Time: dataTime, Value: 100.67}
+				dataPoint := DataPoint{AgentID: agentID, VariableID: variableID, Time: dataTime, Value: 100.67}
 
 				Expect(db.BeginTransaction()).To(BeNil())
 				err := db.AddDataPoint(dataPoint)
@@ -302,6 +328,32 @@ var _ = Describe("Database", func() {
 				Expect(actualVariableID).To(Equal(variableID))
 				Expect(actualTime).To(BeTemporally("==", dataTime))
 				Expect(actualValue).To(Equal(100.67))
+			})
+		})
+
+		Describe("GetVariableIDForName", func() {
+			BeforeEach(func() {
+				_, err := db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2, "distance", "metres")
+				Expect(err).To(BeNil())
+
+				err = db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+
+			It("returns the variable ID if the variable exists", func() {
+				id, err := db.GetVariableIDForName("distance")
+				Expect(err).To(BeNil())
+				Expect(id).To(Equal(2))
+			})
+
+			It("returns -1 if the variable does not exist", func() {
+				id, err := db.GetVariableIDForName("temperature")
+				Expect(err).ToNot(BeNil())
+				Expect(id).To(Equal(-1))
 			})
 		})
 	})

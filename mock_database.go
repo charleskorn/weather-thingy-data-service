@@ -1,6 +1,10 @@
 package main
 
-import "database/sql"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+)
 
 type CreateAgentInfo struct {
 	Calls           []Agent
@@ -16,10 +20,25 @@ type CreateVariableInfo struct {
 	VariableIDToReturn int
 }
 
+type AddDataPointInfo struct {
+	Calls []DataPoint
+}
+
+type CheckAgentIDExistsInfo struct {
+	AgentIDs []int
+}
+
+type GetVariableIDForNameInfo struct {
+	Variables map[string]int
+}
+
 type MockDatabase struct {
-	CreateAgentInfo    CreateAgentInfo
-	GetAllAgentsInfo   GetAllAgentsInfo
-	CreateVariableInfo CreateVariableInfo
+	CreateAgentInfo          CreateAgentInfo
+	GetAllAgentsInfo         GetAllAgentsInfo
+	CreateVariableInfo       CreateVariableInfo
+	AddDataPointInfo         AddDataPointInfo
+	CheckAgentIDExistsInfo   CheckAgentIDExistsInfo
+	GetVariableIDForNameInfo GetVariableIDForNameInfo
 }
 
 func (d *MockDatabase) RunMigrations() (int, error) {
@@ -68,6 +87,27 @@ func (d *MockDatabase) CreateVariable(variable *Variable) error {
 	return nil
 }
 
-func (d *MockDatabase) AddDataPoint(dataPoint *DataPoint) error {
-	panic("Cannot call AddDataPoint() on a MockDatabase")
+func (d *MockDatabase) AddDataPoint(dataPoint DataPoint) error {
+	d.AddDataPointInfo.Calls = append(d.AddDataPointInfo.Calls, dataPoint)
+	return nil
+}
+
+func (d *MockDatabase) CheckAgentIDExists(agentID int) (bool, error) {
+	for _, id := range d.CheckAgentIDExistsInfo.AgentIDs {
+		if id == agentID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (d *MockDatabase) GetVariableIDForName(name string) (int, error) {
+	id, ok := d.GetVariableIDForNameInfo.Variables[name]
+
+	if !ok {
+		return -1, errors.New(fmt.Sprintf("Cannot find variable with name '%s'.", name))
+	}
+
+	return id, nil
 }

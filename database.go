@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	_ "github.com/lib/pq"
 	"github.com/rubenv/sql-migrate"
@@ -21,7 +22,9 @@ type Database interface {
 	CreateAgent(agent *Agent) error
 	GetAllAgents() ([]Agent, error)
 	CreateVariable(variable *Variable) error
-	AddDataPoint(dataPoint *DataPoint) error
+	AddDataPoint(dataPoint DataPoint) error
+	CheckAgentIDExists(agentID int) (bool, error)
+	GetVariableIDForName(name string) (int, error)
 }
 
 type PostgresDatabase struct {
@@ -157,13 +160,51 @@ func (d *PostgresDatabase) CreateVariable(variable *Variable) error {
 	return row.Scan(&variable.VariableID)
 }
 
-func (d *PostgresDatabase) AddDataPoint(dataPoint *DataPoint) error {
+func (d *PostgresDatabase) AddDataPoint(dataPoint DataPoint) error {
 	if err := d.ensureTransaction(); err != nil {
 		return err
 	}
 
 	_, err := d.CurrentTransaction.Exec("INSERT INTO data (agent_id, variable_id, time, value) VALUES ($1, $2, $3, $4);", dataPoint.AgentID, dataPoint.VariableID, dataPoint.Time, dataPoint.Value)
 	return err
+}
+
+func (d *PostgresDatabase) CheckAgentIDExists(agentID int) (bool, error) {
+	if err := d.ensureTransaction(); err != nil {
+		return false, err
+	}
+
+	row := d.CurrentTransaction.QueryRow("SELECT COUNT(*) FROM agents WHERE agent_id = $1;", agentID)
+	count := 0
+
+	if err := row.Scan(&count); err != nil {
+		return false, err
+	}
+
+	return (count > 0), nil
+}
+
+func (d *PostgresDatabase) GetVariableIDForName(name string) (int, error) {
+	if err := d.ensureTransaction(); err != nil {
+		return 0, err
+	}
+
+	rows, err := d.CurrentTransaction.Query("SELECT variable_id FROM variables WHERE name = $1;", name)
+
+	if err != nil {
+		return 0, err
+	}
+
+	if !rows.Next() {
+		return -1, errors.New(fmt.Sprintf("Cannot find variable with name '%s'.", name))
+	}
+
+	var variableID int
+	if err := rows.Scan(&variableID); err != nil {
+		return 0, err
+	}
+
+	return variableID, nil
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

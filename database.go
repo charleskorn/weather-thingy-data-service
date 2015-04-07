@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/rubenv/sql-migrate"
@@ -25,6 +26,7 @@ type Database interface {
 	AddDataPoint(dataPoint DataPoint) error
 	CheckAgentIDExists(agentID int) (bool, error)
 	GetVariableIDForName(name string) (int, error)
+	GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error)
 }
 
 type PostgresDatabase struct {
@@ -207,6 +209,35 @@ func (d *PostgresDatabase) GetVariableIDForName(name string) (int, error) {
 	}
 
 	return variableID, nil
+}
+
+func (d *PostgresDatabase) GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error) {
+	rows, err := d.DB().Query("SELECT value, time FROM data WHERE agent_id = $1 AND variable_id = $2 AND time >= $3 AND time <= $4;",
+		agentID, variableID, fromDate, toDate)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	m := map[string]float64{}
+
+	for rows.Next() {
+		var value float64
+		var t time.Time
+
+		if err := rows.Scan(&value, &t); err != nil {
+			return nil, err
+		}
+
+		m[t.In(time.UTC).Format(time.RFC3339)] = value
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
 type CreateAgentInfo struct {
@@ -110,4 +111,8 @@ func (d *MockDatabase) GetVariableIDForName(name string) (int, error) {
 	}
 
 	return id, nil
+}
+
+func (d *MockDatabase) GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error) {
+	panic("Cannot call GetData() on a MockDatabase")
 }

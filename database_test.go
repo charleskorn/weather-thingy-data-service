@@ -356,6 +356,41 @@ var _ = Describe("Database", func() {
 				Expect(id).To(Equal(-1))
 			})
 		})
+
+		Describe("GetData", func() {
+			ExpectSucceeded := func(_ sql.Result, err error) {
+				Expect(err).To(BeNil())
+			}
+
+			BeforeEach(func() {
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1002, "Second agent"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2001, "distance", "metres"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2002, "humidity", "%"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 101, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2001, 102, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 103, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 104, "2015-04-07T15:01:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 105, "2015-04-07T15:02:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 106, "2015-04-07T15:03:00Z"))
+
+				err := db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+
+			It("returns the data matching the criteria given", func() {
+				data, err := db.GetData(1002, 2002, time.Date(2015, 4, 7, 15, 0, 30, 0, time.UTC), time.Date(2015, 4, 7, 15, 2, 30, 0, time.UTC))
+				Expect(err).To(BeNil())
+				Expect(data).To(HaveLen(2))
+				Expect(data).To(HaveKeyWithValue("2015-04-07T15:01:00Z", float64(104)))
+				Expect(data).To(HaveKeyWithValue("2015-04-07T15:02:00Z", float64(105)))
+			})
+		})
 	})
 })
 

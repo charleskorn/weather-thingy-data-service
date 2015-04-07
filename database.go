@@ -195,6 +195,8 @@ func (d *PostgresDatabase) GetVariableIDForName(name string) (int, error) {
 		return 0, err
 	}
 
+	defer rows.Close()
+
 	if !rows.Next() {
 		return -1, errors.New(fmt.Sprintf("Cannot find variable with name '%s'.", name))
 	}

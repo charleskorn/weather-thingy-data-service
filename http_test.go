@@ -106,6 +106,39 @@ var _ = Describe("HTTP endpoints", func() {
 		})
 	})
 
+	Describe("/v1/agents/:agent_id/data", func() {
+		Context("POST", func() {
+			It("saves the data to the database", func() {
+				db, err := connectToDatabase(testDataSourceName)
+				Expect(err).To(BeNil())
+				defer db.Close()
+
+				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');")
+				Expect(err).To(BeNil())
+				_, err = db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES (1005, 'distance', 'metres');")
+				Expect(err).To(BeNil())
+
+				resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+				Expect(string(responseBytes)).To(Equal(""))
+
+				var agentID, variableID int
+				var value float64
+				var actualTime time.Time
+				err = db.DB().QueryRow("SELECT agent_id, variable_id, value, time FROM data;").Scan(&agentID, &variableID, &value, &actualTime)
+				Expect(err).To(BeNil())
+				Expect(agentID).To(Equal(1004))
+				Expect(variableID).To(Equal(1005))
+				Expect(value).To(Equal(10.5))
+				Expect(actualTime).To(BeTemporally("==", time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC)))
+			})
+		})
+	})
+
 	Describe("/v1/variables", func() {
 		Context("POST", func() {
 			It("saves the variable to the database and returns the variable ID", func() {

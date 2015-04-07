@@ -68,7 +68,11 @@ func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 			return false
 		}
 
-		db.AddDataPoint(DataPoint{AgentID: agentID, VariableID: variableID, Value: point.Value, Time: data.Time})
+		if err := db.AddDataPoint(DataPoint{AgentID: agentID, VariableID: variableID, Value: point.Value, Time: data.Time}); err != nil {
+			log.Println("Could not save data: ", err)
+			http.Error(w, "Could not save data.", http.StatusInternalServerError)
+			return false
+		}
 	}
 
 	w.WriteHeader(http.StatusCreated)

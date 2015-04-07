@@ -22,6 +22,7 @@ func startServer(config Config) {
 	router := httprouter.New()
 	router.POST("/v1/agents", withDatabaseTransaction(postAgent, config))
 	router.GET("/v1/agents", withDatabase(getAllAgents, config))
+	router.POST("/v1/agents/:agent_id/data", withDatabaseTransaction(postDataPoints, config))
 	router.POST("/v1/variables", withDatabaseTransaction(postVariable, config))
 
 	server = &graceful.Server{

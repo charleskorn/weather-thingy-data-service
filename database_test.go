@@ -17,10 +17,6 @@ var _ = Describe("Database", func() {
 	var testDataSourceName string
 	var db Database
 
-	ExpectSucceeded := func(_ sql.Result, err error) {
-		Expect(err).To(BeNil())
-	}
-
 	BeforeEach(func() {
 		testDataSourceName = getTestDataSourceName()
 		removeTestDatabase(testDataSourceName, true)
@@ -465,4 +461,8 @@ func removeTestDatabase(dataSourceName string, recreate bool) {
 			Fail("Could not create test database: " + err.Error())
 		}
 	}
+}
+
+func ExpectSucceeded(_ sql.Result, err error) {
+	Expect(err).To(BeNil())
 }

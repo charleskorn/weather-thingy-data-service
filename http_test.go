@@ -77,10 +77,8 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(err).To(BeNil())
 				defer db.Close()
 
-				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');")
-				Expect(err).To(BeNil())
-				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');"))
 
 				resp, err := http.Get(urlFor("/v1/agents"))
 
@@ -113,10 +111,8 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(err).To(BeNil())
 				defer db.Close()
 
-				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');")
-				Expect(err).To(BeNil())
-				_, err = db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES (1005, 'distance', 'metres');")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES (1005, 'distance', 'metres');"))
 
 				resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
 				Expect(err).To(BeNil())
@@ -135,6 +131,34 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(variableID).To(Equal(1005))
 				Expect(value).To(Equal(10.5))
 				Expect(actualTime).To(BeTemporally("==", time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC)))
+			})
+		})
+
+		Context("GET", func() {
+			It("retrieves the data from the database", func() {
+				db, err := connectToDatabase(testDataSourceName)
+				Expect(err).To(BeNil())
+				defer db.Close()
+
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES (1005, 'distance', 'metres');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 103, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 104, "2015-04-07T15:01:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 105, "2015-04-07T15:02:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 106, "2015-04-07T15:03:00Z"))
+
+				resp, err := http.Get(urlFor("/v1/agents/1004/data?variable=1005&date_from=2015-04-07T15:00:30Z&date_to=2015-04-07T15:02:30Z"))
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+
+				responseString := string(responseBytes)
+				Expect(responseString).To(Equal(`{"data":[` +
+					`{"id":1005,"name":"distance","units":"metres","points":{"2015-04-07T15:01:00Z":104,"2015-04-07T15:02:00Z":105}}` +
+					`]}`))
 			})
 		})
 	})

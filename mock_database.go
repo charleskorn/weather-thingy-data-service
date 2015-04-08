@@ -33,6 +33,18 @@ type GetVariableIDForNameInfo struct {
 	Variables map[string]int
 }
 
+type ValueSet map[string]float64
+type VariableValues map[int]ValueSet
+type AgentValues map[int]VariableValues
+
+type GetDataInfo struct {
+	Values AgentValues
+}
+
+type GetVariableByIDInfo struct {
+	Variables map[int]Variable
+}
+
 type MockDatabase struct {
 	CreateAgentInfo          CreateAgentInfo
 	GetAllAgentsInfo         GetAllAgentsInfo
@@ -40,6 +52,8 @@ type MockDatabase struct {
 	AddDataPointInfo         AddDataPointInfo
 	CheckAgentIDExistsInfo   CheckAgentIDExistsInfo
 	GetVariableIDForNameInfo GetVariableIDForNameInfo
+	GetDataInfo              GetDataInfo
+	GetVariableByIDInfo      GetVariableByIDInfo
 }
 
 func (d *MockDatabase) RunMigrations() (int, error) {
@@ -114,5 +128,21 @@ func (d *MockDatabase) GetVariableIDForName(name string) (int, error) {
 }
 
 func (d *MockDatabase) GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error) {
-	panic("Cannot call GetData() on a MockDatabase")
+	if agent, ok := d.GetDataInfo.Values[agentID]; !ok {
+		return nil, fmt.Errorf("No mocked data for agent with ID %v.", agentID)
+	} else {
+		if values, ok := agent[variableID]; !ok {
+			return ValueSet{}, nil
+		} else {
+			return values, nil
+		}
+	}
+}
+
+func (d *MockDatabase) GetVariableByID(variableID int) (Variable, error) {
+	if variable, ok := d.GetVariableByIDInfo.Variables[variableID]; !ok {
+		return Variable{}, fmt.Errorf("No mocked variable with ID %v.", variableID)
+	} else {
+		return variable, nil
+	}
 }

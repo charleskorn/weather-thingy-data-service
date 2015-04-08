@@ -27,6 +27,7 @@ type Database interface {
 	CheckAgentIDExists(agentID int) (bool, error)
 	GetVariableIDForName(name string) (int, error)
 	GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error)
+	GetVariableByID(variableID int) (Variable, error)
 }
 
 type PostgresDatabase struct {
@@ -238,6 +239,21 @@ func (d *PostgresDatabase) GetData(agentID int, variableID int, fromDate time.Ti
 	}
 
 	return m, nil
+}
+
+func (d *PostgresDatabase) GetVariableByID(variableID int) (Variable, error) {
+	if err := d.ensureTransaction(); err != nil {
+		return Variable{}, err
+	}
+
+	variable := Variable{}
+	row := d.CurrentTransaction.QueryRow("SELECT variable_id, name, units, created FROM variables WHERE variable_id = $1;", variableID)
+
+	if err := row.Scan(&variable.VariableID, &variable.Name, &variable.Units, &variable.Created); err != nil {
+		return Variable{}, err
+	}
+
+	return variable, nil
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

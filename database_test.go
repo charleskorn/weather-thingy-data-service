@@ -17,6 +17,10 @@ var _ = Describe("Database", func() {
 	var testDataSourceName string
 	var db Database
 
+	ExpectSucceeded := func(_ sql.Result, err error) {
+		Expect(err).To(BeNil())
+	}
+
 	BeforeEach(func() {
 		testDataSourceName = getTestDataSourceName()
 		removeTestDatabase(testDataSourceName, true)
@@ -116,9 +120,8 @@ var _ = Describe("Database", func() {
 
 		Context("when there is an active transaction", func() {
 			BeforeEach(func() {
-				_, err := db.DB().Exec("CREATE TABLE temp (name VARCHAR(100));")
-				Expect(err).To(BeNil())
-				err = db.BeginTransaction()
+				ExpectSucceeded(db.DB().Exec("CREATE TABLE temp (name VARCHAR(100));"))
+				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
 
@@ -132,10 +135,9 @@ var _ = Describe("Database", func() {
 			})
 
 			It("applies changes made to the database", func() {
-				_, err := db.Transaction().Exec("INSERT INTO temp (name) VALUES ('test');")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.Transaction().Exec("INSERT INTO temp (name) VALUES ('test');"))
 				var count int
-				err = db.Transaction().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
+				err := db.Transaction().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
 
@@ -158,9 +160,8 @@ var _ = Describe("Database", func() {
 
 		Context("when there is an active transaction", func() {
 			BeforeEach(func() {
-				_, err := db.DB().Exec("CREATE TABLE temp (name VARCHAR(100));")
-				Expect(err).To(BeNil())
-				err = db.BeginTransaction()
+				ExpectSucceeded(db.DB().Exec("CREATE TABLE temp (name VARCHAR(100));"))
+				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
 
@@ -174,10 +175,9 @@ var _ = Describe("Database", func() {
 			})
 
 			It("reverts changes made to the database", func() {
-				_, err := db.Transaction().Exec("INSERT INTO temp (name) VALUES ('test');")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.Transaction().Exec("INSERT INTO temp (name) VALUES ('test');"))
 				var count int
-				err = db.Transaction().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
+				err := db.Transaction().QueryRow("SELECT COUNT(*) FROM temp;").Scan(&count)
 				Expect(err).To(BeNil())
 				Expect(count).To(Equal(1))
 
@@ -228,10 +228,8 @@ var _ = Describe("Database", func() {
 			})
 
 			It("gets all agents from the database", func() {
-				_, err := db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');")
-				Expect(err).To(BeNil())
-				_, err = db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');"))
 
 				agents, err := db.GetAllAgents()
 
@@ -248,10 +246,9 @@ var _ = Describe("Database", func() {
 
 		Describe("CheckAgentIDExists", func() {
 			BeforeEach(func() {
-				_, err := db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 2, "Agent 2 name")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 2, "Agent 2 name"))
 
-				err = db.BeginTransaction()
+				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
 
@@ -301,10 +298,8 @@ var _ = Describe("Database", func() {
 			variableID := 6
 
 			BeforeEach(func() {
-				_, err := db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", agentID, "Agent 2 name")
-				Expect(err).To(BeNil())
-				_, err = db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", variableID, "Variable 6 name", "Variable 6 units")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", agentID, "Agent 2 name"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", variableID, "Variable 6 name", "Variable 6 units"))
 			})
 
 			It("adds the data point to the database", func() {
@@ -333,10 +328,9 @@ var _ = Describe("Database", func() {
 
 		Describe("GetVariableIDForName", func() {
 			BeforeEach(func() {
-				_, err := db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2, "distance", "metres")
-				Expect(err).To(BeNil())
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2, "distance", "metres"))
 
-				err = db.BeginTransaction()
+				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
 
@@ -358,10 +352,6 @@ var _ = Describe("Database", func() {
 		})
 
 		Describe("GetData", func() {
-			ExpectSucceeded := func(_ sql.Result, err error) {
-				Expect(err).To(BeNil())
-			}
-
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1002, "Second agent"))
@@ -389,6 +379,35 @@ var _ = Describe("Database", func() {
 				Expect(data).To(HaveLen(2))
 				Expect(data).To(HaveKeyWithValue("2015-04-07T15:01:00Z", float64(104)))
 				Expect(data).To(HaveKeyWithValue("2015-04-07T15:02:00Z", float64(105)))
+			})
+		})
+
+		Describe("GetVariableByID", func() {
+			BeforeEach(func() {
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)",
+					2001, "distance", "metres", "2015-04-07T15:01:00Z"))
+
+				err := db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+
+			It("returns the variable if it exists", func() {
+				variable, err := db.GetVariableByID(2001)
+				Expect(err).To(BeNil())
+				Expect(variable.VariableID).To(Equal(2001))
+				Expect(variable.Name).To(Equal("distance"))
+				Expect(variable.Units).To(Equal("metres"))
+				Expect(variable.Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 1, 0, 0, time.UTC)))
+			})
+
+			It("fails if the variable does not exist", func() {
+				variable, err := db.GetVariableByID(2002)
+				Expect(err).ToNot(BeNil())
+				Expect(variable).To(Equal(Variable{}))
 			})
 		})
 	})

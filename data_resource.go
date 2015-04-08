@@ -28,6 +28,17 @@ type PostDataPoint struct {
 	Value    float64
 }
 
+type GetDataResult struct {
+	Data []GetDataResultVariable `json:"data"`
+}
+
+type GetDataResultVariable struct {
+	VariableID int                `json:"id"`
+	Name       string             `json:"name"`
+	Units      string             `json:"units"`
+	Points     map[string]float64 `json:"points"`
+}
+
 func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Params, db Database) bool {
 	agentID, ok := extractAgentID(params, w, db)
 
@@ -119,4 +130,107 @@ func validatePostRequest(data PostDataPoints, w http.ResponseWriter) bool {
 	}
 
 	return true
+}
+
+func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, db Database) bool {
+	agentID, ok := extractAgentID(params, w, db)
+
+	if !ok {
+		return false
+	}
+
+	variables, fromTime, toTime, ok := extractGetParameters(w, r)
+
+	if !ok {
+		return false
+	}
+
+	result := GetDataResult{}
+
+	for _, variableID := range variables {
+		variable, err := db.GetVariableByID(variableID)
+
+		if err != nil {
+			log.Println("Could not get variable info:", err)
+			http.Error(w, "Could not get variable info.", http.StatusInternalServerError)
+			return false
+		}
+
+		variableResult := GetDataResultVariable{VariableID: variableID, Name: variable.Name, Units: variable.Units}
+
+		if points, err := db.GetData(agentID, variableID, fromTime, toTime); err != nil {
+			log.Println("Could not retrieve data:", err)
+			http.Error(w, "Could not retrieve data.", http.StatusInternalServerError)
+			return false
+		} else {
+			variableResult.Points = points
+		}
+
+		result.Data = append(result.Data, variableResult)
+	}
+
+	response, err := json.Marshal(result)
+
+	if err != nil {
+		log.Println("Could not generate response: ", err)
+		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
+		return false
+	}
+
+	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(response)
+
+	return true
+}
+
+func extractGetParameters(w http.ResponseWriter, r *http.Request) ([]int, time.Time, time.Time, bool) {
+	if r.URL.Query().Get("variable") == "" {
+		http.Error(w, "Must specify variable with 'variable' URL parameter.", http.StatusBadRequest)
+		return nil, time.Time{}, time.Time{}, false
+	}
+
+	if r.URL.Query().Get("date_from") == "" {
+		http.Error(w, "Must specify to date with 'date_from' URL parameter.", http.StatusBadRequest)
+		return nil, time.Time{}, time.Time{}, false
+	}
+
+	if r.URL.Query().Get("date_to") == "" {
+		http.Error(w, "Must specify from date with 'date_to' URL parameter.", http.StatusBadRequest)
+		return nil, time.Time{}, time.Time{}, false
+	}
+
+	fromDate, err := time.Parse(time.RFC3339, r.URL.Query().Get("date_from"))
+
+	if err != nil {
+		http.Error(w, "Cannot parse from date value.", http.StatusBadRequest)
+		return nil, time.Time{}, time.Time{}, false
+	}
+
+	toDate, err := time.Parse(time.RFC3339, r.URL.Query().Get("date_to"))
+
+	if err != nil {
+		http.Error(w, "Cannot parse to date value.", http.StatusBadRequest)
+		return nil, time.Time{}, time.Time{}, false
+	}
+
+	if fromDate.After(toDate) {
+		http.Error(w, "From date is after to date.", http.StatusBadRequest)
+		return nil, time.Time{}, time.Time{}, false
+	}
+
+	variables := []int{}
+
+	for _, rawID := range r.URL.Query()["variable"] {
+		id, err := strconv.Atoi(rawID)
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Variable '%v' is not an integer.", id), http.StatusBadRequest)
+			return nil, time.Time{}, time.Time{}, false
+		}
+
+		variables = append(variables, id)
+	}
+
+	return variables, fromDate, toDate, true
 }

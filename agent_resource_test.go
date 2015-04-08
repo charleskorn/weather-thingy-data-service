@@ -138,6 +138,8 @@ var _ = Describe("Agent resource", func() {
 		It("returns a list of all agents", func() {
 			resp := makeRequest(db)
 
+			Expect(resp.Code).To(Equal(http.StatusOK))
+			Expect(resp.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
 			Expect(string(resp.Body.Bytes())).To(Equal(`[{"id":1234,"name":"The name","created":"2015-03-27T08:00:00Z"}]`))
 		})
 	})

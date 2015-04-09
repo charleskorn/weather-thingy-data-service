@@ -22,13 +22,13 @@
     "exec": [
       "/bin/weather-thingy-data-service",
       "-address",
-      ":80"
+      ":8000"
     ],
     "ports": [
       {
         "name": "www",
         "protocol": "tcp",
-        "port": 80
+        "port": 8000
       }
     ]
   },

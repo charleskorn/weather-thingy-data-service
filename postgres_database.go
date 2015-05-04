@@ -14,6 +14,16 @@ type PostgresDatabase struct {
 	CurrentTransaction *sql.Tx
 }
 
+func connectToDatabase(dataSourceName string) (Database, error) {
+	db, err := sql.Open("postgres", dataSourceName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &PostgresDatabase{DatabaseHandle: db}, nil
+}
+
 func (d *PostgresDatabase) RunMigrations() (int, error) {
 	migrationSource := getMigrationSource()
 
@@ -162,7 +172,7 @@ func (d *PostgresDatabase) GetVariableIDForName(name string) (int, error) {
 	defer rows.Close()
 
 	if !rows.Next() {
-		return -1, errors.New(fmt.Sprintf("Cannot find variable with name '%s'.", name))
+		return -1, fmt.Errorf("Cannot find variable with name '%s'.", name)
 	}
 
 	var variableID int
@@ -215,6 +225,54 @@ func (d *PostgresDatabase) GetVariableByID(variableID int) (Variable, error) {
 	}
 
 	return variable, nil
+}
+
+func (d *PostgresDatabase) GetVariablesForAgent(agentID int) ([]Variable, error) {
+	if err := d.ensureTransaction(); err != nil {
+		return []Variable{}, err
+	}
+
+	rows, err := d.CurrentTransaction.Query("SELECT variable_id, name, units, created FROM variables "+
+		"WHERE variable_id IN (SELECT DISTINCT variable_id FROM data WHERE agent_id = $1);",
+		agentID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	variables := []Variable{}
+
+	for rows.Next() {
+		variable := Variable{}
+
+		if err := rows.Scan(&variable.VariableID, &variable.Name, &variable.Units, &variable.Created); err != nil {
+			return nil, err
+		}
+
+		variables = append(variables, variable)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return variables, nil
+}
+
+func (d *PostgresDatabase) GetAgentByID(agentID int) (Agent, error) {
+	if err := d.ensureTransaction(); err != nil {
+		return Agent{}, err
+	}
+
+	agent := Agent{}
+	row := d.CurrentTransaction.QueryRow("SELECT agent_id, name, created FROM agents WHERE agent_id = $1;", agentID)
+
+	if err := row.Scan(&agent.AgentID, &agent.Name, &agent.Created); err != nil {
+		return Agent{}, err
+	}
+
+	return agent, nil
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

@@ -57,7 +57,7 @@ var _ = Describe("Data resource", func() {
 				`}}]}`
 			json, err := json.Marshal(data)
 			Expect(err).To(BeNil())
-			Expect(string(json)).To(Equal(expectedJson))
+			Expect(string(json)).To(MatchJSON(expectedJson))
 		})
 	})
 
@@ -222,7 +222,7 @@ var _ = Describe("Data resource", func() {
 				resp, returnValue := makeRequest("variable=123&variable=321&date_from=2015-03-27T05:00:00Z&date_to=2015-03-28T23:50:45Z", "1", db)
 
 				Expect(resp.Code).To(Equal(http.StatusOK))
-				Expect(string(resp.Body.Bytes())).To(Equal(`{"data":[` +
+				Expect(string(resp.Body.Bytes())).To(MatchJSON(`{"data":[` +
 					`{"id":123,"name":"temperature","units":"°C","points":{"2015-03-27T06:00:00Z":100,"2015-03-27T09:00:00Z":105}},` +
 					`{"id":321,"name":"humidity","units":"%","points":{"2015-03-27T08:00:00Z":100.5,"2015-03-27T12:00:00Z":80.9}}` +
 					`]}`))
@@ -242,10 +242,6 @@ var _ = Describe("Data resource", func() {
 
 				It(fmt.Sprintf("returns HTTP %v response", responseCode), func() {
 					Expect(response.Code).To(Equal(responseCode))
-				})
-
-				It("does not save the variable to the database", func() {
-					Expect(len(db.CreateVariableInfo.Calls)).To(Equal(0))
 				})
 
 				It("returns false to rollback the transaction", func() {

@@ -26,6 +26,8 @@ type Database interface {
 	GetVariableIDForName(name string) (int, error)
 	GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error)
 	GetVariableByID(variableID int) (Variable, error)
+	GetVariablesForAgent(agentID int) ([]Variable, error)
+	GetAgentByID(agentID int) (Agent, error)
 }
 
 func getMigrationSource() migrate.MigrationSource {
@@ -34,14 +36,4 @@ func getMigrationSource() migrate.MigrationSource {
 		AssetDir: AssetDir,
 		Dir:      "db/migrations",
 	}
-}
-
-func connectToDatabase(dataSourceName string) (Database, error) {
-	db, err := sql.Open("postgres", dataSourceName)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &PostgresDatabase{DatabaseHandle: db}, nil
 }

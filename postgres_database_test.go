@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
@@ -13,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Database", func() {
+var _ = Describe("PostgresDatabase", func() {
 	var testDataSourceName string
 	var db Database
 
@@ -45,26 +44,7 @@ var _ = Describe("Database", func() {
 		})
 	})
 
-	Describe("getMigrationSource", func() {
-		It("returns all of the migrations", func() {
-			expectedMigrations, _ := ioutil.ReadDir("db/migrations")
-			expectedMigrationFileNames := make([]string, len(expectedMigrations))
-			for i, m := range expectedMigrations {
-				expectedMigrationFileNames[i] = m.Name()
-			}
-
-			migrations, _ := getMigrationSource().FindMigrations()
-			migrationNames := make([]string, len(migrations))
-			for i, m := range migrations {
-				migrationNames[i] = m.Id
-			}
-
-			// If this test fails, you probably need to run 'generate.sh'.
-			Expect(migrationNames).To(Equal(expectedMigrationFileNames))
-		})
-	})
-
-	Describe("runMigrations", func() {
+	Describe("RunMigrations", func() {
 		It("applies all of the migrations", func() {
 			migrations, _ := getMigrationSource().FindMigrations()
 			expectedMigrationCount := len(migrations)
@@ -404,6 +384,59 @@ var _ = Describe("Database", func() {
 				variable, err := db.GetVariableByID(2002)
 				Expect(err).ToNot(BeNil())
 				Expect(variable).To(Equal(Variable{}))
+			})
+		})
+
+		Describe("GetVariablesForAgent", func() {
+			BeforeEach(func() {
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2001, "distance", "metres", "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2002, "humidity", "%", "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
+
+				err := db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+
+			It("returns the details of every variable associated with the agent", func() {
+				variables, err := db.GetVariablesForAgent(1001)
+				Expect(err).To(BeNil())
+				Expect(variables).To(HaveLen(1))
+				Expect(variables[0].VariableID).To(Equal(2001))
+				Expect(variables[0].Name).To(Equal("distance"))
+				Expect(variables[0].Units).To(Equal("metres"))
+				Expect(variables[0].Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC)))
+			})
+		})
+
+		Describe("GetAgentByID", func() {
+			BeforeEach(func() {
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+0:00');"))
+
+				err := db.BeginTransaction()
+				Expect(err).To(BeNil())
+			})
+
+			AfterEach(func() {
+				db.RollbackTransaction()
+			})
+
+			It("returns the agent if it exists", func() {
+				agent, err := db.GetAgentByID(1)
+				Expect(err).To(BeNil())
+				Expect(agent.AgentID).To(Equal(1))
+				Expect(agent.Name).To(Equal("Test Agent 1"))
+				Expect(agent.Created).To(BeTemporally("==", time.Date(2015, 3, 30, 12, 0, 0, 0, time.UTC)))
+			})
+
+			It("fails if the variable does not exist", func() {
+				agent, err := db.GetAgentByID(2)
+				Expect(err).ToNot(BeNil())
+				Expect(agent).To(Equal(Agent{}))
 			})
 		})
 	})

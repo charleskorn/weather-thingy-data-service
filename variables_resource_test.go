@@ -74,7 +74,7 @@ var _ = Describe("Variables resource", func() {
 			})
 
 			It("returns the newly created variable's ID", func() {
-				Expect(responseBody).To(Equal(`{"id":1019}`))
+				Expect(responseBody).To(MatchJSON(`{"id":1019}`))
 			})
 
 			It("returns an appropriate Content-Type header", func() {

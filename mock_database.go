@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -45,6 +44,14 @@ type GetVariableByIDInfo struct {
 	Variables map[int]Variable
 }
 
+type GetVariablesForAgentInfo struct {
+	Variables []Variable
+}
+
+type GetAgentByIDInfo struct {
+	Agents map[int]Agent
+}
+
 type MockDatabase struct {
 	CreateAgentInfo          CreateAgentInfo
 	GetAllAgentsInfo         GetAllAgentsInfo
@@ -54,6 +61,8 @@ type MockDatabase struct {
 	GetVariableIDForNameInfo GetVariableIDForNameInfo
 	GetDataInfo              GetDataInfo
 	GetVariableByIDInfo      GetVariableByIDInfo
+	GetVariablesForAgentInfo GetVariablesForAgentInfo
+	GetAgentByIDInfo         GetAgentByIDInfo
 }
 
 func (d *MockDatabase) RunMigrations() (int, error) {
@@ -121,7 +130,7 @@ func (d *MockDatabase) GetVariableIDForName(name string) (int, error) {
 	id, ok := d.GetVariableIDForNameInfo.Variables[name]
 
 	if !ok {
-		return -1, errors.New(fmt.Sprintf("Cannot find variable with name '%s'.", name))
+		return -1, fmt.Errorf("Cannot find variable with name '%s'.", name)
 	}
 
 	return id, nil
@@ -144,5 +153,17 @@ func (d *MockDatabase) GetVariableByID(variableID int) (Variable, error) {
 		return Variable{}, fmt.Errorf("No mocked variable with ID %v.", variableID)
 	} else {
 		return variable, nil
+	}
+}
+
+func (d *MockDatabase) GetVariablesForAgent(agentID int) ([]Variable, error) {
+	return d.GetVariablesForAgentInfo.Variables, nil
+}
+
+func (d *MockDatabase) GetAgentByID(agentID int) (Agent, error) {
+	if agent, ok := d.GetAgentByIDInfo.Agents[agentID]; !ok {
+		return Agent{}, fmt.Errorf("No mocked agent with ID %v.", agentID)
+	} else {
+		return agent, nil
 	}
 }

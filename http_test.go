@@ -104,6 +104,49 @@ var _ = Describe("HTTP endpoints", func() {
 		})
 	})
 
+	Describe("/v1/agents/:agent_id", func() {
+		Context("GET", func() {
+			It("returns all details of the agent", func() {
+				db, err := connectToDatabase(testDataSourceName)
+				Expect(err).To(BeNil())
+				defer db.Close()
+
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1001, "First agent", "2015-04-05T03:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2001, "distance", "metres", "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2002, "humidity", "%", "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
+
+				resp, err := http.Get(urlFor("/v1/agents/1001"))
+
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+
+				var response map[string]interface{}
+				err = json.Unmarshal(responseBytes, &response)
+
+				Expect(err).To(BeNil())
+				Expect(response).To(HaveKeyWithValue("id", float64(1001)))
+				Expect(response).To(HaveKeyWithValue("name", "First agent"))
+				Expect(response).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 5, 3, 0, 0, 0, time.UTC))))
+				Expect(response).To(HaveKey("variables"))
+
+				variables := response["variables"].([]interface{})
+				Expect(variables).To(HaveLen(1))
+
+				variable := variables[0]
+
+				Expect(variable).To(HaveKeyWithValue("id", float64(2001)))
+				Expect(variable).To(HaveKeyWithValue("name", "distance"))
+				Expect(variable).To(HaveKeyWithValue("units", "metres"))
+				Expect(variable).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC))))
+			})
+		})
+	})
+
 	Describe("/v1/agents/:agent_id/data", func() {
 		Context("POST", func() {
 			It("saves the data to the database", func() {
@@ -156,7 +199,7 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(err).To(BeNil())
 
 				responseString := string(responseBytes)
-				Expect(responseString).To(Equal(`{"data":[` +
+				Expect(responseString).To(MatchJSON(`{"data":[` +
 					`{"id":1005,"name":"distance","units":"metres","points":{"2015-04-07T15:01:00Z":104,"2015-04-07T15:02:00Z":105}}` +
 					`]}`))
 			})

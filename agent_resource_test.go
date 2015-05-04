@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -140,7 +141,83 @@ var _ = Describe("Agent resource", func() {
 
 			Expect(resp.Code).To(Equal(http.StatusOK))
 			Expect(resp.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
-			Expect(string(resp.Body.Bytes())).To(Equal(`[{"id":1234,"name":"The name","created":"2015-03-27T08:00:00Z"}]`))
+			Expect(string(resp.Body.Bytes())).To(MatchJSON(`[{"id":1234,"name":"The name","created":"2015-03-27T08:00:00Z"}]`))
+		})
+	})
+
+	Describe("GET agent request handler", func() {
+		var makeRequest = func(db Database, agentID string) *httptest.ResponseRecorder {
+			request, _ := http.NewRequest("GET", "/blah", strings.NewReader(""))
+			response := httptest.NewRecorder()
+			params := httprouter.Params{httprouter.Param{Key: "agent_id", Value: agentID}}
+
+			getAgent(response, request, params, db)
+
+			return response
+		}
+
+		var db *MockDatabase
+
+		BeforeEach(func() {
+			db = &MockDatabase{}
+			db.CheckAgentIDExistsInfo.AgentIDs = []int{1234}
+			db.GetVariablesForAgentInfo.Variables = []Variable{
+				Variable{VariableID: 2001, Name: "distance", Units: "metres", Created: time.Date(2015, 3, 20, 18, 0, 0, 0, time.UTC)},
+			}
+			db.GetAgentByIDInfo.Agents = map[int]Agent{
+				1234: Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
+			}
+		})
+
+		Context("when the request is valid", func() {
+			var resp *httptest.ResponseRecorder
+
+			BeforeEach(func() {
+				resp = makeRequest(db, "1234")
+			})
+
+			It("returns HTTP 200 response", func() {
+				Expect(resp.Code).To(Equal(http.StatusOK))
+			})
+
+			It("returns an appropriate Content-Type header", func() {
+				Expect(resp.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+			})
+
+			It("returns the details of the agent", func() {
+				Expect(string(resp.Body.Bytes())).To(MatchJSON(`{` +
+					`"id":1234,` +
+					`"name":"The name",` +
+					`"created":"2015-03-27T08:00:00Z",` +
+					`"variables":[{"id":2001,"name":"distance","units":"metres","created":"2015-03-20T18:00:00Z"}]` +
+					`}`))
+			})
+		})
+
+		Context("when the request is invalid", func() {
+			Context("because the agent does not exist", func() {
+				var resp *httptest.ResponseRecorder
+
+				BeforeEach(func() {
+					resp = makeRequest(db, "5")
+				})
+
+				It("returns HTTP 404 response", func() {
+					Expect(resp.Code).To(Equal(http.StatusNotFound))
+				})
+			})
+
+			Context("because the agent ID is not an integer", func() {
+				var resp *httptest.ResponseRecorder
+
+				BeforeEach(func() {
+					resp = makeRequest(db, "abc")
+				})
+
+				It("returns HTTP 400 response", func() {
+					Expect(resp.Code).To(Equal(http.StatusBadRequest))
+				})
+			})
 		})
 	})
 })

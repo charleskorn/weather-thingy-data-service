@@ -91,27 +91,6 @@ func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 	return true
 }
 
-func extractAgentID(params httprouter.Params, w http.ResponseWriter, db Database) (int, bool) {
-	rawAgentID := params.ByName("agent_id")
-	agentID, err := strconv.Atoi(rawAgentID)
-
-	if err != nil {
-		http.Error(w, "Invalid agent ID.", http.StatusBadRequest)
-		return 0, false
-	}
-
-	if exists, err := db.CheckAgentIDExists(agentID); err != nil {
-		log.Println("Could not check if agent exists: ", err)
-		http.Error(w, "Could not check if agent exists.", http.StatusInternalServerError)
-		return 0, false
-	} else if !exists {
-		http.Error(w, "Agent does not exist.", http.StatusNotFound)
-		return 0, false
-	}
-
-	return agentID, true
-}
-
 func validatePostRequest(data PostDataPoints, w http.ResponseWriter) bool {
 	if data.Time.Equal(time.Time{}) {
 		http.Error(w, "Must specify time value.", http.StatusBadRequest)

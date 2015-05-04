@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	TESTING_ADDRESS = ":8081"
+	TestingAddress = ":8081"
 )
 
 func urlFor(path string) string {
-	return "http://localhost" + TESTING_ADDRESS + path
+	return "http://localhost" + TestingAddress + path
 }
 
 var _ = Describe("HTTP endpoints", func() {
@@ -31,7 +31,7 @@ var _ = Describe("HTTP endpoints", func() {
 		Expect(err).To(BeNil())
 		db.Close()
 
-		go startServer(Config{ServerAddress: TESTING_ADDRESS, DataSourceName: testDataSourceName})
+		go startServer(Config{ServerAddress: TestingAddress, DataSourceName: testDataSourceName})
 	})
 
 	AfterEach(func() {

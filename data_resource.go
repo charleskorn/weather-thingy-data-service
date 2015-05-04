@@ -137,13 +137,12 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 		}
 
 		variableResult := GetDataResultVariable{VariableID: variableID, Name: variable.Name, Units: variable.Units}
+		variableResult.Points, err = db.GetData(agentID, variableID, fromTime, toTime)
 
-		if points, err := db.GetData(agentID, variableID, fromTime, toTime); err != nil {
+		if err != nil {
 			log.Println("Could not retrieve data:", err)
 			http.Error(w, "Could not retrieve data.", http.StatusInternalServerError)
 			return false
-		} else {
-			variableResult.Points = points
 		}
 
 		result.Data = append(result.Data, variableResult)

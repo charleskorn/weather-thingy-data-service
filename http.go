@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/graceful"
 )
 
-const SHUTDOWN_TIMEOUT = 2 * time.Second
+const ShutdownTimeout = 2 * time.Second
 
 var server *graceful.Server
 
@@ -28,7 +28,7 @@ func startServer(config Config) {
 	router.POST("/v1/variables", withDatabaseTransaction(postVariable, config))
 
 	server = &graceful.Server{
-		Timeout: SHUTDOWN_TIMEOUT,
+		Timeout: ShutdownTimeout,
 		Server:  &http.Server{Addr: config.ServerAddress, Handler: LoggingRouter{Handler: router}},
 	}
 
@@ -92,7 +92,7 @@ func withDatabaseTransaction(handler RouteWithDatabaseTransaction, config Config
 }
 
 func stopServer() {
-	server.Stop(SHUTDOWN_TIMEOUT)
+	server.Stop(ShutdownTimeout)
 }
 
 func SimpleError(w http.ResponseWriter, code int) {

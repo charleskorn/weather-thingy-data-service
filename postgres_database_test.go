@@ -443,28 +443,32 @@ var _ = Describe("PostgresDatabase", func() {
 })
 
 func getTestDataSourceName() string {
-	if envDataSource := os.Getenv("WEATHER_THINGY_TEST_DATA_SOURCE"); envDataSource != "" {
+	envDataSource := os.Getenv("WEATHER_THINGY_TEST_DATA_SOURCE")
+
+	if envDataSource != "" {
 		log.Println("Using data source from WEATHER_THINGY_TEST_DATA_SOURCE environment variable: " + envDataSource)
 		return envDataSource
-	} else {
-		defaultDataSource := "postgres://tests@localhost/weatherthingytest?sslmode=disable"
-		log.Println("Using default data source: " + defaultDataSource)
-		return defaultDataSource
 	}
+
+	defaultDataSource := "postgres://tests@localhost/weatherthingytest?sslmode=disable"
+	log.Println("Using default data source: " + defaultDataSource)
+	return defaultDataSource
 }
 
 func extractDatabaseName(dataSourceName string) (string, error) {
-	if url, err := url.Parse(dataSourceName); err != nil {
+	url, err := url.Parse(dataSourceName)
+
+	if err != nil {
 		return "", err
-	} else {
-		name := url.Path
-
-		if strings.HasPrefix(name, "/") {
-			name = name[1:]
-		}
-
-		return name, nil
 	}
+
+	name := url.Path
+
+	if strings.HasPrefix(name, "/") {
+		name = name[1:]
+	}
+
+	return name, nil
 }
 
 func removeTestDatabase(dataSourceName string, recreate bool) {

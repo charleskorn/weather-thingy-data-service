@@ -137,23 +137,29 @@ func (d *MockDatabase) GetVariableIDForName(name string) (int, error) {
 }
 
 func (d *MockDatabase) GetData(agentID int, variableID int, fromDate time.Time, toDate time.Time) (map[string]float64, error) {
-	if agent, ok := d.GetDataInfo.Values[agentID]; !ok {
+	agent, ok := d.GetDataInfo.Values[agentID]
+
+	if !ok {
 		return nil, fmt.Errorf("No mocked data for agent with ID %v.", agentID)
-	} else {
-		if values, ok := agent[variableID]; !ok {
-			return ValueSet{}, nil
-		} else {
-			return values, nil
-		}
 	}
+
+	values, ok := agent[variableID]
+
+	if !ok {
+		return ValueSet{}, nil
+	}
+
+	return values, nil
 }
 
 func (d *MockDatabase) GetVariableByID(variableID int) (Variable, error) {
-	if variable, ok := d.GetVariableByIDInfo.Variables[variableID]; !ok {
+	variable, ok := d.GetVariableByIDInfo.Variables[variableID]
+
+	if !ok {
 		return Variable{}, fmt.Errorf("No mocked variable with ID %v.", variableID)
-	} else {
-		return variable, nil
 	}
+
+	return variable, nil
 }
 
 func (d *MockDatabase) GetVariablesForAgent(agentID int) ([]Variable, error) {
@@ -161,9 +167,11 @@ func (d *MockDatabase) GetVariablesForAgent(agentID int) ([]Variable, error) {
 }
 
 func (d *MockDatabase) GetAgentByID(agentID int) (Agent, error) {
-	if agent, ok := d.GetAgentByIDInfo.Agents[agentID]; !ok {
+	agent, ok := d.GetAgentByIDInfo.Agents[agentID]
+
+	if !ok {
 		return Agent{}, fmt.Errorf("No mocked agent with ID %v.", agentID)
-	} else {
-		return agent, nil
 	}
+
+	return agent, nil
 }

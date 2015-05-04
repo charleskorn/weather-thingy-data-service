@@ -51,13 +51,13 @@ var _ = Describe("Data resource", func() {
 				},
 			}
 
-			expectedJson := `{"data":[` +
+			expectedJSON := `{"data":[` +
 				`{"id":10,"name":"distance","units":"metres","points":{` +
 				`"2015-03-26T14:35:00Z":15.3,"2015-03-26T14:40:00Z":15` +
 				`}}]}`
 			json, err := json.Marshal(data)
 			Expect(err).To(BeNil())
-			Expect(string(json)).To(MatchJSON(expectedJson))
+			Expect(string(json)).To(MatchJSON(expectedJSON))
 		})
 	})
 

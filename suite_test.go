@@ -41,13 +41,13 @@ func (matcher *BeParsableAndEqualToMatcher) Match(actual interface{}) (bool, err
 	s, ok := actual.(string)
 
 	if !ok {
-		return false, fmt.Errorf("'%#v' is not a string.", actual)
+		return false, fmt.Errorf("'%#v' is not a string", actual)
 	}
 
 	t, err := time.Parse(time.RFC3339, s)
 
 	if err != nil {
-		return false, fmt.Errorf("Could not parse value '%s' as a RFC3339 date/time value.", s)
+		return false, fmt.Errorf("Could not parse value '%s' as a RFC3339 date/time value", s)
 	}
 
 	return t.Equal(matcher.CompareTo), nil

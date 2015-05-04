@@ -51,6 +51,7 @@ func withDatabase(handler RouteWithDatabase, config Config) httprouter.Handle {
 
 		defer db.Close()
 
+		w.Header().Add("Access-Control-Allow-Origin", "*")
 		handler(w, r, p, db)
 	}
 }

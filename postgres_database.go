@@ -130,7 +130,8 @@ func (d *PostgresDatabase) CreateVariable(variable *Variable) error {
 		return err
 	}
 
-	row := d.CurrentTransaction.QueryRow("INSERT INTO variables (name, units, created) VALUES ($1, $2, $3) RETURNING variable_id", variable.Name, variable.Units, variable.Created)
+	row := d.CurrentTransaction.QueryRow("INSERT INTO variables (name, units, display_decimal_places, created) "+
+		"VALUES ($1, $2, $3, $4) RETURNING variable_id", variable.Name, variable.Units, variable.DisplayDecimalPlaces, variable.Created)
 	return row.Scan(&variable.VariableID)
 }
 
@@ -218,9 +219,9 @@ func (d *PostgresDatabase) GetVariableByID(variableID int) (Variable, error) {
 	}
 
 	variable := Variable{}
-	row := d.CurrentTransaction.QueryRow("SELECT variable_id, name, units, created FROM variables WHERE variable_id = $1;", variableID)
+	row := d.CurrentTransaction.QueryRow("SELECT variable_id, name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", variableID)
 
-	if err := row.Scan(&variable.VariableID, &variable.Name, &variable.Units, &variable.Created); err != nil {
+	if err := row.Scan(&variable.VariableID, &variable.Name, &variable.Units, &variable.DisplayDecimalPlaces, &variable.Created); err != nil {
 		return Variable{}, err
 	}
 
@@ -232,7 +233,7 @@ func (d *PostgresDatabase) GetVariablesForAgent(agentID int) ([]Variable, error)
 		return []Variable{}, err
 	}
 
-	rows, err := d.CurrentTransaction.Query("SELECT variable_id, name, units, created FROM variables "+
+	rows, err := d.CurrentTransaction.Query("SELECT variable_id, name, units, display_decimal_places, created FROM variables "+
 		"WHERE variable_id IN (SELECT DISTINCT variable_id FROM data WHERE agent_id = $1);",
 		agentID)
 
@@ -246,7 +247,8 @@ func (d *PostgresDatabase) GetVariablesForAgent(agentID int) ([]Variable, error)
 	for rows.Next() {
 		variable := Variable{}
 
-		if err := rows.Scan(&variable.VariableID, &variable.Name, &variable.Units, &variable.Created); err != nil {
+		if err := rows.Scan(&variable.VariableID, &variable.Name, &variable.Units,
+			&variable.DisplayDecimalPlaces, &variable.Created); err != nil {
 			return nil, err
 		}
 

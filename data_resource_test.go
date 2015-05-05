@@ -41,9 +41,10 @@ var _ = Describe("Data resource", func() {
 			data := GetDataResult{
 				Data: []GetDataResultVariable{
 					GetDataResultVariable{
-						VariableID: 10,
-						Name:       "distance",
-						Units:      "metres",
+						VariableID:           10,
+						Name:                 "distance",
+						Units:                "metres",
+						DisplayDecimalPlaces: 30,
 						Points: map[string]float64{
 							"2015-03-26T14:35:00Z": 15.3,
 							"2015-03-26T14:40:00Z": 15.0},
@@ -51,10 +52,13 @@ var _ = Describe("Data resource", func() {
 				},
 			}
 
-			expectedJSON := `{"data":[` +
-				`{"id":10,"name":"distance","units":"metres","points":{` +
-				`"2015-03-26T14:35:00Z":15.3,"2015-03-26T14:40:00Z":15` +
-				`}}]}`
+			expectedJSON := `{"data":[{` +
+				`"id":10,` +
+				`"name":"distance",` +
+				`"units":"metres",` +
+				`"displayDecimalPlaces":30,` +
+				`"points":{"2015-03-26T14:35:00Z":15.3,"2015-03-26T14:40:00Z":15}` +
+				`}]}`
 			json, err := json.Marshal(data)
 			Expect(err).To(BeNil())
 			Expect(string(json)).To(MatchJSON(expectedJSON))
@@ -200,8 +204,8 @@ var _ = Describe("Data resource", func() {
 			db = &MockDatabase{}
 			db.CheckAgentIDExistsInfo.AgentIDs = []int{1}
 			db.GetVariableByIDInfo.Variables = map[int]Variable{
-				123: Variable{Name: "temperature", Units: "°C"},
-				321: Variable{Name: "humidity", Units: "%"},
+				123: Variable{Name: "temperature", Units: "°C", DisplayDecimalPlaces: 1},
+				321: Variable{Name: "humidity", Units: "%", DisplayDecimalPlaces: 2},
 			}
 			db.GetDataInfo.Values = AgentValues{
 				1: VariableValues{
@@ -223,8 +227,8 @@ var _ = Describe("Data resource", func() {
 
 				Expect(resp.Code).To(Equal(http.StatusOK))
 				Expect(string(resp.Body.Bytes())).To(MatchJSON(`{"data":[` +
-					`{"id":123,"name":"temperature","units":"°C","points":{"2015-03-27T06:00:00Z":100,"2015-03-27T09:00:00Z":105}},` +
-					`{"id":321,"name":"humidity","units":"%","points":{"2015-03-27T08:00:00Z":100.5,"2015-03-27T12:00:00Z":80.9}}` +
+					`{"id":123,"name":"temperature","units":"°C","displayDecimalPlaces":1,"points":{"2015-03-27T06:00:00Z":100,"2015-03-27T09:00:00Z":105}},` +
+					`{"id":321,"name":"humidity","units":"%","displayDecimalPlaces":2,"points":{"2015-03-27T08:00:00Z":100.5,"2015-03-27T12:00:00Z":80.9}}` +
 					`]}`))
 				Expect(returnValue).To(BeTrue())
 				Expect(resp.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))

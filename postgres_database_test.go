@@ -248,7 +248,7 @@ var _ = Describe("PostgresDatabase", func() {
 		Describe("CreateVariable", func() {
 			It("saves new variables to the database", func() {
 				created := time.Now().Round(time.Millisecond)
-				variable := &Variable{Name: "Test variable", Units: "metres (m)", Created: created}
+				variable := &Variable{Name: "Test variable", Units: "metres (m)", DisplayDecimalPlaces: 2, Created: created}
 
 				Expect(db.BeginTransaction()).To(BeNil())
 				err := db.CreateVariable(variable)
@@ -259,12 +259,15 @@ var _ = Describe("PostgresDatabase", func() {
 
 				var actualName, actualUnits string
 				var actualCreated time.Time
-				row := db.DB().QueryRow("SELECT name, units, created FROM variables WHERE variable_id = $1", variable.VariableID)
-				err = row.Scan(&actualName, &actualUnits, &actualCreated)
+				var actualDisplayDecimalPlaces int
+				row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created "+
+					"FROM variables WHERE variable_id = $1", variable.VariableID)
+				err = row.Scan(&actualName, &actualUnits, &actualDisplayDecimalPlaces, &actualCreated)
 
 				Expect(err).To(BeNil())
 				Expect(actualName).To(Equal("Test variable"))
 				Expect(actualUnits).To(Equal("metres (m)"))
+				Expect(actualDisplayDecimalPlaces).To(Equal(2))
 				Expect(actualCreated).To(BeTemporally("==", created))
 			})
 		})
@@ -275,7 +278,7 @@ var _ = Describe("PostgresDatabase", func() {
 
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", agentID, "Agent 2 name"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", variableID, "Variable 6 name", "Variable 6 units"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", variableID, "Variable 6 name", "Variable 6 units", 2))
 			})
 
 			It("adds the data point to the database", func() {
@@ -304,7 +307,7 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetVariableIDForName", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2, "distance", "metres"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", 2, "distance", "metres", 2))
 
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
@@ -331,8 +334,8 @@ var _ = Describe("PostgresDatabase", func() {
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1002, "Second agent"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2001, "distance", "metres"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES ($1, $2, $3)", 2002, "humidity", "%"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", 2001, "distance", "metres", 2))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", 2002, "humidity", "%", 2))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 101, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2001, 102, "2015-04-07T15:00:00Z"))
@@ -360,8 +363,8 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetVariableByID", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)",
-					2001, "distance", "metres", "2015-04-07T15:01:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) "+
+					"VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 2, "2015-04-07T15:01:00Z"))
 
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
@@ -377,6 +380,7 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(variable.VariableID).To(Equal(2001))
 				Expect(variable.Name).To(Equal("distance"))
 				Expect(variable.Units).To(Equal("metres"))
+				Expect(variable.DisplayDecimalPlaces).To(Equal(2))
 				Expect(variable.Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 1, 0, 0, time.UTC)))
 			})
 
@@ -390,8 +394,8 @@ var _ = Describe("PostgresDatabase", func() {
 		Describe("GetVariablesForAgent", func() {
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2001, "distance", "metres", "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2002, "humidity", "%", "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 20, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 30, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
 
 				err := db.BeginTransaction()
@@ -409,6 +413,7 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(variables[0].VariableID).To(Equal(2001))
 				Expect(variables[0].Name).To(Equal("distance"))
 				Expect(variables[0].Units).To(Equal("metres"))
+				Expect(variables[0].DisplayDecimalPlaces).To(Equal(20))
 				Expect(variables[0].Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC)))
 			})
 		})

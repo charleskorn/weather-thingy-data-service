@@ -34,10 +34,11 @@ type GetDataResult struct {
 }
 
 type GetDataResultVariable struct {
-	VariableID int                `json:"id"`
-	Name       string             `json:"name"`
-	Units      string             `json:"units"`
-	Points     map[string]float64 `json:"points"`
+	VariableID           int                `json:"id"`
+	Name                 string             `json:"name"`
+	Units                string             `json:"units"`
+	DisplayDecimalPlaces int                `json:"displayDecimalPlaces"`
+	Points               map[string]float64 `json:"points"`
 }
 
 func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Params, db Database) bool {
@@ -136,7 +137,7 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 			return false
 		}
 
-		variableResult := GetDataResultVariable{VariableID: variableID, Name: variable.Name, Units: variable.Units}
+		variableResult := GetDataResultVariable{VariableID: variableID, Name: variable.Name, Units: variable.Units, DisplayDecimalPlaces: variable.DisplayDecimalPlaces}
 		variableResult.Points, err = db.GetData(agentID, variableID, fromTime, toTime)
 
 		if err != nil {

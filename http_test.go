@@ -112,8 +112,8 @@ var _ = Describe("HTTP endpoints", func() {
 				defer db.Close()
 
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1001, "First agent", "2015-04-05T03:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2001, "distance", "metres", "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, created) VALUES ($1, $2, $3, $4)", 2002, "humidity", "%", "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 1, "2015-04-07T15:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
 
 				resp, err := http.Get(urlFor("/v1/agents/1001"))
@@ -142,6 +142,7 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(variable).To(HaveKeyWithValue("id", float64(2001)))
 				Expect(variable).To(HaveKeyWithValue("name", "distance"))
 				Expect(variable).To(HaveKeyWithValue("units", "metres"))
+				Expect(variable).To(HaveKeyWithValue("displayDecimalPlaces", float64(1)))
 				Expect(variable).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC))))
 			})
 		})
@@ -155,7 +156,7 @@ var _ = Describe("HTTP endpoints", func() {
 				defer db.Close()
 
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES (1005, 'distance', 'metres');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES (1005, 'distance', 'metres', 1);"))
 
 				resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
 				Expect(err).To(BeNil())
@@ -184,7 +185,7 @@ var _ = Describe("HTTP endpoints", func() {
 				defer db.Close()
 
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units) VALUES (1005, 'distance', 'metres');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES (1005, 'distance', 'metres', 1);"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 103, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 104, "2015-04-07T15:01:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 105, "2015-04-07T15:02:00Z"))
@@ -200,7 +201,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				responseString := string(responseBytes)
 				Expect(responseString).To(MatchJSON(`{"data":[` +
-					`{"id":1005,"name":"distance","units":"metres","points":{"2015-04-07T15:01:00Z":104,"2015-04-07T15:02:00Z":105}}` +
+					`{"id":1005,"name":"distance","units":"metres","displayDecimalPlaces":1,"points":{"2015-04-07T15:01:00Z":104,"2015-04-07T15:02:00Z":105}}` +
 					`]}`))
 			})
 		})
@@ -209,7 +210,7 @@ var _ = Describe("HTTP endpoints", func() {
 	Describe("/v1/variables", func() {
 		Context("POST", func() {
 			It("saves the variable to the database and returns the variable ID", func() {
-				resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)"}`))
+				resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
@@ -231,10 +232,13 @@ var _ = Describe("HTTP endpoints", func() {
 				id := int(response["id"].(float64))
 				var name, units string
 				var created time.Time
-				err = db.DB().QueryRow("SELECT name, units, created FROM variables WHERE variable_id = $1;", id).Scan(&name, &units, &created)
+				var displayDecimalPlaces int
+				row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
+				err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
 				Expect(err).To(BeNil())
 				Expect(name).To(Equal("New variable name"))
 				Expect(units).To(Equal("seconds (s)"))
+				Expect(displayDecimalPlaces).To(Equal(2))
 				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
 			})
 		})

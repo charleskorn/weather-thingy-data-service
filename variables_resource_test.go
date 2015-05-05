@@ -15,11 +15,17 @@ import (
 var _ = Describe("Variables resource", func() {
 	Describe("data structure", func() {
 		It("can be serialised to JSON", func() {
-			variable := Variable{VariableID: 1039, Name: "Distance to floor", Units: "metres (m)", Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
+			variable := Variable{
+				VariableID:           1039,
+				Name:                 "Distance to floor",
+				Units:                "metres (m)",
+				DisplayDecimalPlaces: 1,
+				Created:              time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC),
+			}
 
 			bytes, err := json.Marshal(variable)
 			Expect(err).To(BeNil())
-			Expect(string(bytes)).To(MatchJSON(`{"id":1039,"name":"Distance to floor","units":"metres (m)","created":"2015-03-26T14:35:00Z"}`))
+			Expect(string(bytes)).To(MatchJSON(`{"id":1039,"name":"Distance to floor","units":"metres (m)","displayDecimalPlaces":1,"created":"2015-03-26T14:35:00Z"}`))
 		})
 
 		It("can be deserialised from JSON", func() {
@@ -56,7 +62,7 @@ var _ = Describe("Variables resource", func() {
 
 			BeforeEach(func() {
 				db.CreateVariableInfo.VariableIDToReturn = 1019
-				response, returnValue = makeRequest(`{"name":"New variable name","units":"metres (m)"}`, db)
+				response, returnValue = makeRequest(`{"name":"New variable name","units":"metres (m)","displayDecimalPlaces":2}`, db)
 				responseBody = string(response.Body.Bytes())
 			})
 
@@ -70,6 +76,7 @@ var _ = Describe("Variables resource", func() {
 				Expect(variable.Name).To(Equal("New variable name"))
 				Expect(variable.Units).To(Equal("metres (m)"))
 				Expect(variable.VariableID).To(Equal(0))
+				Expect(variable.DisplayDecimalPlaces).To(Equal(2))
 				Expect(variable.Created).ToNot(BeTemporally("==", time.Time{}))
 			})
 
@@ -113,19 +120,27 @@ var _ = Describe("Variables resource", func() {
 			})
 
 			Describe("because the name field is empty", func() {
-				TheRequestFails(`{"name":"","units":"something"}`)
+				TheRequestFails(`{"name":"","units":"something","displayDecimalPlaces":1}`)
 			})
 
 			Describe("because the name field is missing", func() {
-				TheRequestFails(`{"units":"something"}`)
+				TheRequestFails(`{"units":"something","displayDecimalPlaces":1}`)
 			})
 
 			Describe("because the units field is empty", func() {
-				TheRequestFails(`{"name":"something","units":""}`)
+				TheRequestFails(`{"name":"something","units":"","displayDecimalPlaces":1}`)
 			})
 
 			Describe("because the units field is missing", func() {
-				TheRequestFails(`{"name":"something"}`)
+				TheRequestFails(`{"name":"something","displayDecimalPlaces":1}`)
+			})
+
+			Describe("because the display decimal places field is not an integer", func() {
+				TheRequestFails(`{"name":"something","units":"something","displayDecimalPlaces":"abc"}`)
+			})
+
+			Describe("because the display decimal places field is negative", func() {
+				TheRequestFails(`{"name":"something","units":"something","displayDecimalPlaces":-1}`)
 			})
 		})
 	})

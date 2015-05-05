@@ -11,10 +11,11 @@ import (
 )
 
 type Variable struct {
-	VariableID int       `json:"id"`
-	Name       string    `json:"name"`
-	Units      string    `json:"units"`
-	Created    time.Time `json:"created"`
+	VariableID           int       `json:"id"`
+	Name                 string    `json:"name"`
+	Units                string    `json:"units"`
+	DisplayDecimalPlaces int       `json:"displayDecimalPlaces"`
+	Created              time.Time `json:"created"`
 }
 
 func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db Database) bool {
@@ -41,6 +42,11 @@ func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 
 	if variable.Units == "" {
 		http.Error(w, "Must specify units.", http.StatusBadRequest)
+		return false
+	}
+
+	if variable.DisplayDecimalPlaces < 0 {
+		http.Error(w, "displayDecimalPlaces must be non-negative.", http.StatusBadRequest)
 		return false
 	}
 

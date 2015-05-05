@@ -162,7 +162,7 @@ var _ = Describe("Agent resource", func() {
 			db = &MockDatabase{}
 			db.CheckAgentIDExistsInfo.AgentIDs = []int{1234}
 			db.GetVariablesForAgentInfo.Variables = []Variable{
-				Variable{VariableID: 2001, Name: "distance", Units: "metres", Created: time.Date(2015, 3, 20, 18, 0, 0, 0, time.UTC)},
+				Variable{VariableID: 2001, Name: "distance", Units: "metres", DisplayDecimalPlaces: 1, Created: time.Date(2015, 3, 20, 18, 0, 0, 0, time.UTC)},
 			}
 			db.GetAgentByIDInfo.Agents = map[int]Agent{
 				1234: Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
@@ -189,7 +189,7 @@ var _ = Describe("Agent resource", func() {
 					`"id":1234,` +
 					`"name":"The name",` +
 					`"created":"2015-03-27T08:00:00Z",` +
-					`"variables":[{"id":2001,"name":"distance","units":"metres","created":"2015-03-20T18:00:00Z"}]` +
+					`"variables":[{"id":2001,"name":"distance","units":"metres","displayDecimalPlaces":1,"created":"2015-03-20T18:00:00Z"}]` +
 					`}`))
 			})
 		})

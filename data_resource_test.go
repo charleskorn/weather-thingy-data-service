@@ -162,7 +162,7 @@ var _ = Describe("Data resource", func() {
 			})
 
 			Describe("because the variable field is missing", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"value":10]}`, existentAgentID)
+				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, existentAgentID)
 			})
 
 			Describe("because the value field is empty", func() {

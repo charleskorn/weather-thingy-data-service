@@ -170,6 +170,8 @@ var _ = Describe("PostgresDatabase", func() {
 	Context("when connected to a database with all migrations applied", func() {
 		BeforeEach(func() {
 			db.RunMigrations()
+
+			CreateTestData(db)
 		})
 
 		Describe("CreateAgent", func() {
@@ -197,6 +199,8 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetAllAgents", func() {
 			It("returns an empty list if there are no agents in the database", func() {
+				ExpectSucceeded(db.DB().Exec("DELETE FROM data;"))
+				ExpectSucceeded(db.DB().Exec("DELETE FROM agents;"))
 				agents, err := db.GetAllAgents()
 
 				Expect(err).To(BeNil())
@@ -204,26 +208,21 @@ var _ = Describe("PostgresDatabase", func() {
 			})
 
 			It("gets all agents from the database", func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');"))
-
 				agents, err := db.GetAllAgents()
 
 				Expect(err).To(BeNil())
 				Expect(agents).To(HaveLen(2))
-				Expect(agents[0].AgentID).To(Equal(1))
-				Expect(agents[0].Name).To(Equal("Test Agent 1"))
+				Expect(agents[0].AgentID).To(Equal(1001))
+				Expect(agents[0].Name).To(Equal("First agent"))
 				Expect(agents[0].Created).To(BeTemporally("==", time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC)))
-				Expect(agents[1].AgentID).To(Equal(2))
-				Expect(agents[1].Name).To(Equal("Test Agent 2"))
+				Expect(agents[1].AgentID).To(Equal(1002))
+				Expect(agents[1].Name).To(Equal("Second agent"))
 				Expect(agents[1].Created).To(BeTemporally("==", time.Date(2015, 2, 16, 20, 0, 0, 0, time.UTC)))
 			})
 		})
 
 		Describe("CheckAgentIDExists", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 2, "Agent 2 name"))
-
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
@@ -233,13 +232,13 @@ var _ = Describe("PostgresDatabase", func() {
 			})
 
 			It("returns true if the agent exists", func() {
-				exists, err := db.CheckAgentIDExists(2)
+				exists, err := db.CheckAgentIDExists(1002)
 				Expect(err).To(BeNil())
 				Expect(exists).To(BeTrue())
 			})
 
 			It("returns false if the agent does not exist", func() {
-				exists, err := db.CheckAgentIDExists(23)
+				exists, err := db.CheckAgentIDExists(9001)
 				Expect(err).To(BeNil())
 				Expect(exists).To(BeFalse())
 			})
@@ -273,17 +272,9 @@ var _ = Describe("PostgresDatabase", func() {
 		})
 
 		Describe("AddDataPoint", func() {
-			agentID := 2
-			variableID := 6
-
-			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", agentID, "Agent 2 name"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", variableID, "Variable 6 name", "Variable 6 units", 2))
-			})
-
 			It("adds the data point to the database", func() {
 				dataTime := time.Now().Round(time.Millisecond)
-				dataPoint := DataPoint{AgentID: agentID, VariableID: variableID, Time: dataTime, Value: 100.67}
+				dataPoint := DataPoint{AgentID: 1002, VariableID: 2002, Time: dataTime, Value: 100.67}
 
 				Expect(db.BeginTransaction()).To(BeNil())
 				err := db.AddDataPoint(dataPoint)
@@ -294,12 +285,12 @@ var _ = Describe("PostgresDatabase", func() {
 				var actualAgentID, actualVariableID int
 				var actualValue float64
 				var actualTime time.Time
-				row := db.DB().QueryRow("SELECT agent_id, variable_id, time, value FROM data")
+				row := db.DB().QueryRow("SELECT agent_id, variable_id, time, value FROM data WHERE agent_id = 1002 AND variable_id = 2002;")
 				err = row.Scan(&actualAgentID, &actualVariableID, &actualTime, &actualValue)
 
 				Expect(err).To(BeNil())
-				Expect(actualAgentID).To(Equal(agentID))
-				Expect(actualVariableID).To(Equal(variableID))
+				Expect(actualAgentID).To(Equal(1002))
+				Expect(actualVariableID).To(Equal(2002))
 				Expect(actualTime).To(BeTemporally("==", dataTime))
 				Expect(actualValue).To(Equal(100.67))
 			})
@@ -307,8 +298,6 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetVariableIDForName", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", 2, "distance", "metres", 2))
-
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
@@ -320,7 +309,7 @@ var _ = Describe("PostgresDatabase", func() {
 			It("returns the variable ID if the variable exists", func() {
 				id, err := db.GetVariableIDForName("distance")
 				Expect(err).To(BeNil())
-				Expect(id).To(Equal(2))
+				Expect(id).To(Equal(2001))
 			})
 
 			It("returns -1 if the variable does not exist", func() {
@@ -332,18 +321,6 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetData", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1002, "Second agent"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", 2001, "distance", "metres", 2))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4)", 2002, "humidity", "%", 2))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 101, "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2001, 102, "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 103, "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 104, "2015-04-07T15:01:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 105, "2015-04-07T15:02:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2002, 106, "2015-04-07T15:03:00Z"))
-
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
@@ -353,19 +330,16 @@ var _ = Describe("PostgresDatabase", func() {
 			})
 
 			It("returns the data matching the criteria given", func() {
-				data, err := db.GetData(1002, 2002, time.Date(2015, 4, 7, 15, 0, 30, 0, time.UTC), time.Date(2015, 4, 7, 15, 2, 30, 0, time.UTC))
+				data, err := db.GetData(1001, 2002, time.Date(2015, 4, 7, 15, 0, 30, 0, time.UTC), time.Date(2015, 4, 7, 15, 2, 30, 0, time.UTC))
 				Expect(err).To(BeNil())
 				Expect(data).To(HaveLen(2))
-				Expect(data).To(HaveKeyWithValue("2015-04-07T15:01:00Z", float64(104)))
-				Expect(data).To(HaveKeyWithValue("2015-04-07T15:02:00Z", float64(105)))
+				Expect(data).To(HaveKeyWithValue("2015-04-07T15:01:00Z", float64(103)))
+				Expect(data).To(HaveKeyWithValue("2015-04-07T15:02:00Z", float64(104)))
 			})
 		})
 
 		Describe("GetVariableByID", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) "+
-					"VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 2, "2015-04-07T15:01:00Z"))
-
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
@@ -381,11 +355,11 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(variable.Name).To(Equal("distance"))
 				Expect(variable.Units).To(Equal("metres"))
 				Expect(variable.DisplayDecimalPlaces).To(Equal(2))
-				Expect(variable.Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 1, 0, 0, time.UTC)))
+				Expect(variable.Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC)))
 			})
 
 			It("fails if the variable does not exist", func() {
-				variable, err := db.GetVariableByID(2002)
+				variable, err := db.GetVariableByID(9002)
 				Expect(err).ToNot(BeNil())
 				Expect(variable).To(Equal(Variable{}))
 			})
@@ -393,11 +367,6 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetVariablesForAgent", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES ($1, $2)", 1001, "First agent"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 20, "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 30, "2015-04-07T15:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
-
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
 			})
@@ -407,13 +376,13 @@ var _ = Describe("PostgresDatabase", func() {
 			})
 
 			It("returns the details of every variable associated with the agent", func() {
-				variables, err := db.GetVariablesForAgent(1001)
+				variables, err := db.GetVariablesForAgent(1002)
 				Expect(err).To(BeNil())
 				Expect(variables).To(HaveLen(1))
 				Expect(variables[0].VariableID).To(Equal(2001))
 				Expect(variables[0].Name).To(Equal("distance"))
 				Expect(variables[0].Units).To(Equal("metres"))
-				Expect(variables[0].DisplayDecimalPlaces).To(Equal(20))
+				Expect(variables[0].DisplayDecimalPlaces).To(Equal(2))
 				Expect(variables[0].Created).To(BeTemporally("==", time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC)))
 			})
 		})
@@ -507,4 +476,17 @@ func removeTestDatabase(dataSourceName string, recreate bool) {
 
 func ExpectSucceeded(_ sql.Result, err error) {
 	Expect(err).To(BeNil())
+}
+
+func CreateTestData(db Database) {
+	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1001, "First agent", "2015-03-30 12:00:00+10:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1002, "Second agent", "2015-02-17 08:00:00+12:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 2, "2015-04-07T15:00:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 2, "2015-04-07T15:00:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 101, "2015-04-07T15:00:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 103, "2015-04-07T15:01:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 104, "2015-04-07T15:02:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2002, 105, "2015-04-07T15:03:00Z"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1002, 2001, 102, "2015-04-07T15:00:00Z"))
 }

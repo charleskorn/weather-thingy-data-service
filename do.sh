@@ -61,6 +61,7 @@ function clean {
 
 function setup {
   go get -t -v
+  go get -v github.com/jteeuwen/go-bindata/...
 }
 
 function generate {
@@ -82,7 +83,6 @@ function analyse {
 
 function snap-setup {
   # From https://fourcube.github.io/golang/2014/12/12/go-on-snap-ci.html
-  # Pin this script in your build steps.
   GO_OS="linux"
   GO_ARCH="amd64"
 

@@ -119,7 +119,7 @@ function snap-setup {
   sudo yum install --assumeyes mercurial
 
   echo "Installing Docker..."
-  sudo yum install --assumeyes docker
+  curl -sSL https://get.docker.com/ | sh
 
   echo "Environment summary:"
   go env

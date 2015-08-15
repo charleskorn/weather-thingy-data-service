@@ -70,7 +70,7 @@ function generate {
 
 function build {
   generate
-  go build weather-thingy-data-service
+  go build -o weather-thingy-data-service
 }
 
 function test {

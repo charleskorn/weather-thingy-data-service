@@ -121,6 +121,9 @@ function snap-setup {
   echo "Installing Docker..."
   hash docker 2>/dev/null || { curl -sSL https://get.docker.com/ | sh; }
 
+  echo "Starting Docker..."
+  sudo service docker start
+
   echo "Environment summary:"
   go env
 

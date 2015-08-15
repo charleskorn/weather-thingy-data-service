@@ -38,6 +38,10 @@ function main {
     snap-setup
     ;;
 
+  docker-build)
+    docker-build
+    ;;
+
   *)
     help
     exit 1
@@ -118,6 +122,14 @@ function snap-setup {
   go env
 
   echo ""
+}
+
+function docker-build {
+  echo "Compiling..."
+  CGO_ENABLED=0 GOOS=linux go build -o weather-thingy-data-service-amd64-linux -a -installsuffix cgo .
+
+  echo "Building image..."
+  docker build --tag=charleskorn/weather-thingy-data-service .
 }
 
 function help {

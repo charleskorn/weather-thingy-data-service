@@ -1,3 +1,10 @@
 language: go
 
 go: 1.4.2
+
+addons:
+  postgresql: "9.3"
+
+before_script:
+  - psql -c 'create database weatherthingytest;' -U postgres
+  - psql -c 'create user tests;' -U postgres

@@ -6,5 +6,4 @@ addons:
   postgresql: "9.3"
 
 before_script:
-  - psql -c 'create database weatherthingytest;' -U postgres
-  - psql -c 'create user tests;' -U postgres
+  - psql -c 'CREATE USER tests WITH CREATEDB;' -U postgres

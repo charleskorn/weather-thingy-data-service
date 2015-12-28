@@ -1,6 +1,6 @@
 COMMIT := $(shell git rev-parse --verify HEAD --short)
 DOCKER_REPO := charleskorn/weather-thingy-data-service
-DOCKER_IMAGE := $(DOCKER_REPO):$(COMMIT)
+DOCKER_IMAGE := $(DOCKER_REPO):git-$(COMMIT)
 
 all: test analyse
 
@@ -43,10 +43,11 @@ endif
 	docker tag $(DOCKER_IMAGE) $(DOCKER_REPO):travis-$(TRAVIS_BUILD_NUMBER)
 
 ifeq "$(TRAVIS_PULL_REQUEST)" "false"
+
+	docker tag $(DOCKER_IMAGE) $(DOCKER_REPO):$(TRAVIS_BRANCH)
+
 ifeq "$(TRAVIS_BRANCH)" "master"
 	docker tag $(DOCKER_IMAGE) $(DOCKER_REPO):latest
-else
-	docker tag $(DOCKER_IMAGE) $(DOCKER_REPO):$(TRAVIS_BRANCH)
 endif
 endif
 

@@ -19,3 +19,5 @@ install:
 script:
   - make
   - make docker-build
+  - make docker-tag-travis
+  - make docker-push

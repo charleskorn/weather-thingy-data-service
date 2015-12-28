@@ -25,7 +25,7 @@ analyse:
 
 docker-build:
 	CGO_ENABLED=0 GOOS=linux go build -o weather-thingy-data-service-amd64-linux -a -installsuffix cgo .
-	docker build --tag=$(DOCKER_REPO):$(COMMIT) .
+	docker build --tag=$(DOCKER_IMAGE) .
 
 docker-tag-travis:
 ifeq "$(TRAVIS_BUILD_NUMBER)" ""

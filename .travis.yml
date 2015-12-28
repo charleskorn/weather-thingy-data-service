@@ -10,14 +10,26 @@ services:
 addons:
   postgresql: "9.3"
 
-before_script:
-  - psql -c 'CREATE USER tests WITH CREATEDB;' -U postgres
+env:
+  global:
+    # DOCKER_EMAIL
+    - secure: "e59bwDupZ9jVBHnYTEOSWCNIztiP7z7au3fwoBmGg579Ug3HEn85ehLhH3TuXekhVP5sAJjBpn2Hwa3l3zFuS0InSHDqH9jPjWR+uVOAUGVFNSlZVoC+9Fgq9AW9x788K+MrW+1V1PC99LYoCy4BptUhwS2VaB6X8CAWkkB//Bw="
+    # DOCKER_USERNAME
+    - secure: "eHasONIUEznvh9lBJNYbMYatVpb9VXS0ekJk6l+AeAi0aGDiz3vE7dv8edHsioOJkJXDmjkicbWFMlKURZZ2f9aBlA0t4BWVK95mpuAOPFsW1tJjup0dOk8qzvAOWioLQCTvBqA/L10yvJM9bQjmDMeMOG37k5uAdODfKti3kQY="
+    # DOCKER_PASSWORD
+    - secure: "eUwVETUSUfq9U3S75K4qQrJeJ5Sjdi1B9TbjhWX78PpnN53KrTNhyizNx/IPJcRlR58vxhK8swcqvN49Gb1YcuPNS4s8JL2tuxvIy7qqcf+bI881B2Tdwn3oLmHOm020XPbWJGGsETrobo8vVDDVH/qfnLzjEt8Ln8aFBsSzLls="
 
 install:
   - make setup
 
+before_script:
+  - psql -c 'CREATE USER tests WITH CREATEDB;' -U postgres
+  - docker login -e="$DOCKER_EMAIL" -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+
 script:
   - make
   - make docker-build
+
+after_success:
   - make docker-tag-travis
   - make docker-push

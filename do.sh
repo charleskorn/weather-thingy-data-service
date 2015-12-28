@@ -2,13 +2,8 @@
 
 set -e
 
-GO_VERSION="1.4.2"
-
 function main {
   case "$1" in
-  check)
-    check
-    ;;
 
   clean)
     clean
@@ -34,10 +29,6 @@ function main {
     analyse
     ;;
 
-  snap-setup)
-    snap-setup
-    ;;
-
   docker-build)
     docker-build
     ;;
@@ -48,15 +39,6 @@ function main {
     ;;
 
   esac
-}
-
-function check {
-  VERSION_STRING=$(go version)
-
-  if [[ "$VERSION_STRING" != "go version go$GO_VERSION "* ]]; then
-    echo "Go version $GO_VERSION not found."
-    exit 1
-  fi
 }
 
 function clean {
@@ -85,51 +67,6 @@ function analyse {
   go tool vet -all -shadow .
 }
 
-function snap-setup {
-  # From https://fourcube.github.io/golang/2014/12/12/go-on-snap-ci.html
-  GO_OS="linux"
-  GO_ARCH="amd64"
-
-  export GOPATH="$SNAP_CACHE_DIR/go-$GO_VERSION/gopath"
-  export GOROOT="$SNAP_CACHE_DIR/go-$GO_VERSION"
-  export GOBIN="$GOPATH/bin"
-  export PATH="$PATH:$GOBIN:$GOROOT/bin"
-
-  # If we have not downloaded go yet, do it and put it in the cache
-  if [ ! -d $GOROOT ] ; then
-    echo "Go not found in $GOROOT, downloading and installing..."
-    mkdir $GOROOT
-
-    GO_ARTIFACT="go$GO_VERSION.$GO_OS-$GO_ARCH.tar.gz"
-    LOCAL_PATH="$SNAP_CACHE_DIR/$GO_ARTIFACT"
-
-    echo "Downloading $GO_ARTIFACT..."
-    wget -O $LOCAL_PATH https://storage.googleapis.com/golang/$GO_ARTIFACT
-
-    echo "Extracting files..."
-    tar -xzf $LOCAL_PATH --strip 1 -C $GOROOT
-
-    echo "Installing go vet..."
-    go get golang.org/x/tools/cmd/vet
-
-    echo ""
-  fi
-
-  echo "Installing Mercurial..."
-  sudo yum install --assumeyes mercurial
-
-  echo "Installing Docker..."
-  hash docker 2>/dev/null || { curl -sSL https://get.docker.com/ | sh; }
-
-  echo "Starting Docker..."
-  sudo service docker start
-
-  echo "Environment summary:"
-  go env
-
-  echo ""
-}
-
 function docker-build {
   echo "Compiling..."
   CGO_ENABLED=0 GOOS=linux go build -o weather-thingy-data-service-amd64-linux -a -installsuffix cgo .
@@ -145,7 +82,6 @@ function help {
   echo " generate      generate files used by the build process"
   echo " build         build the application"
   echo " test          test the application"
-  echo " snap-setup    sets up a Snap CI build environment"
   echo " docker-build  build a Docker image for the application"
   echo " help          print this help information"
 }

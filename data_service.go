@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"log"
+	log "github.com/Sirupsen/logrus"
 	"os"
 )
 
@@ -44,7 +44,7 @@ func runMigrations(config Config) {
 func main() {
 	config := readOptions()
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetFormatter(&log.JSONFormatter{})
 	log.Println("Starting up...")
 
 	runMigrations(config)

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	log "github.com/Sirupsen/logrus"
 	"testing"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 )
 
 func TestDataService(t *testing.T) {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetFormatter(&log.JSONFormatter{})
 	log.SetOutput(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "weather-thingy Data Service")

@@ -2,7 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"log"
+	log "github.com/Sirupsen/logrus"
 	"net/url"
 	"os"
 	"strings"

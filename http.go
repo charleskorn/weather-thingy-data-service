@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	log "github.com/Sirupsen/logrus"
 	"net"
 	"net/http"
 	"net/http/httptest"

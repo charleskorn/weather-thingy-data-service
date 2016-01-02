@@ -21,7 +21,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err != nil {
-		log.Println("Could not read request: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
 		http.Error(w, "Could not read request.", http.StatusInternalServerError)
 		return false
 	}
@@ -29,7 +29,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	var agent Agent
 
 	if err := json.Unmarshal(body, &agent); err != nil {
-		log.Println("Could not unmarshal request: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
 		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
 		return false
 	}
@@ -42,7 +42,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	agent.Created = time.Now()
 
 	if err := db.CreateAgent(&agent); err != nil {
-		log.Println("Could not create new agent: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not create new agent.")
 		http.Error(w, "Could not create new agent.", http.StatusInternalServerError)
 		return false
 	}
@@ -50,7 +50,7 @@ func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db D
 	response, err := json.Marshal(map[string]interface{}{"id": agent.AgentID})
 
 	if err != nil {
-		log.Println("Could not generate response: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
 		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
 		return false
 	}
@@ -65,7 +65,7 @@ func getAllAgents(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 	agents, err := db.GetAllAgents()
 
 	if err != nil {
-		log.Println("Could not get all agents: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not get all agents.")
 		http.Error(w, "Could not get all agents.", http.StatusInternalServerError)
 		return
 	}
@@ -73,7 +73,7 @@ func getAllAgents(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 	response, err := json.Marshal(agents)
 
 	if err != nil {
-		log.Println("Could not generate response: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
 		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
 		return
 	}
@@ -98,13 +98,13 @@ func getAgent(w http.ResponseWriter, r *http.Request, params httprouter.Params, 
 	var err error
 
 	if agent.Agent, err = db.GetAgentByID(agentID); err != nil {
-		log.Println("Could not agent info: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not agent info.")
 		http.Error(w, "Could not get agent details.", http.StatusInternalServerError)
 		return false
 	}
 
 	if agent.Variables, err = db.GetVariablesForAgent(agentID); err != nil {
-		log.Println("Could not get variables for agent: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not get variables for agent.")
 		http.Error(w, "Could not get some agent details.", http.StatusInternalServerError)
 		return false
 	}
@@ -112,7 +112,7 @@ func getAgent(w http.ResponseWriter, r *http.Request, params httprouter.Params, 
 	response, err := json.Marshal(agent)
 
 	if err != nil {
-		log.Println("Could not generate response: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
 		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
 		return false
 	}
@@ -133,7 +133,7 @@ func extractAgentID(params httprouter.Params, w http.ResponseWriter, db Database
 	}
 
 	if exists, err := db.CheckAgentIDExists(agentID); err != nil {
-		log.Println("Could not check if agent exists: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not check if agent exists.")
 		http.Error(w, "Could not check if agent exists.", http.StatusInternalServerError)
 		return 0, false
 	} else if !exists {

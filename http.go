@@ -35,7 +35,7 @@ func startServer(config Config) {
 
 	if err := server.ListenAndServe(); err != nil {
 		if opErr, ok := err.(*net.OpError); !ok || (ok && opErr.Op != "accept") {
-			log.Fatal(err)
+			log.WithFields(log.Fields{"error": err}).Error("Error occurred while listening for requests.")
 		}
 	}
 }
@@ -45,7 +45,7 @@ func withDatabase(handler RouteWithDatabase, config Config) httprouter.Handle {
 		db, err := connectToDatabase(config.DataSourceName)
 
 		if err != nil {
-			log.Print("Could not connect to database: ", err)
+			log.WithFields(log.Fields{"error": err}).Error("Could not connect to database.")
 			SimpleError(w, http.StatusInternalServerError)
 			return
 		}
@@ -60,7 +60,7 @@ func withDatabase(handler RouteWithDatabase, config Config) httprouter.Handle {
 func withDatabaseTransaction(handler RouteWithDatabaseTransaction, config Config) httprouter.Handle {
 	wrapped := func(w http.ResponseWriter, r *http.Request, p httprouter.Params, db Database) {
 		if err := db.BeginTransaction(); err != nil {
-			log.Print("Could not begin transaction: ", err)
+			log.WithFields(log.Fields{"error": err}).Error("Could not begin transaction.")
 			SimpleError(w, http.StatusInternalServerError)
 			return
 		}
@@ -70,13 +70,13 @@ func withDatabaseTransaction(handler RouteWithDatabaseTransaction, config Config
 
 		if commitTransaction {
 			if err := db.CommitTransaction(); err != nil {
-				log.Print("Could not commit transaction: ", err)
+				log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
 				SimpleError(w, http.StatusInternalServerError)
 				return
 			}
 		} else {
 			if err := db.RollbackTransaction(); err != nil {
-				log.Print("Could not rollback transaction: ", err)
+				log.WithFields(log.Fields{"error": err}).Error("Could not rollback transaction.")
 				SimpleError(w, http.StatusInternalServerError)
 				return
 			}

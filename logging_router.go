@@ -17,15 +17,28 @@ type LoggingResponseWriter struct {
 }
 
 func (r LoggingRouter) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	log.WithFields(log.Fields{
+		"method":        request.Method,
+		"url":           request.URL.String(),
+		"remoteAddress": request.RemoteAddr,
+		"requestLength": request.ContentLength,
+	}).Info("Request received.")
+
 	interceptor := LoggingResponseWriter{Status: http.StatusOK, RealWriter: writer}
 	startTime := time.Now()
 
 	defer func() {
 		elapsed := time.Now().Sub(startTime) / time.Millisecond
 
-		log.Printf("%s %s from %s with %d bytes, response code %d with %d bytes in %d ms",
-			request.Method, request.URL.String(), request.RemoteAddr, request.ContentLength,
-			interceptor.Status, interceptor.ResponseSize, elapsed)
+		log.WithFields(log.Fields{
+			"method":              request.Method,
+			"url":                 request.URL.String(),
+			"remoteAddress":       request.RemoteAddr,
+			"requestLength":       request.ContentLength,
+			"responseStatus":      interceptor.Status,
+			"responseLength":      interceptor.ResponseSize,
+			"millisecondsElapsed": elapsed,
+		}).Info("Request complete.")
 	}()
 
 	r.Handler.ServeHTTP(&interceptor, request)

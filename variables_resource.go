@@ -22,7 +22,7 @@ func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err != nil {
-		log.Println("Could not read request: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
 		http.Error(w, "Could not read request.", http.StatusInternalServerError)
 		return false
 	}
@@ -30,7 +30,7 @@ func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 	var variable Variable
 
 	if err := json.Unmarshal(body, &variable); err != nil {
-		log.Println("Could not unmarshal request: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
 		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
 		return false
 	}
@@ -53,7 +53,7 @@ func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 	variable.Created = time.Now()
 
 	if err := db.CreateVariable(&variable); err != nil {
-		log.Println("Could not create new variable: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not create new variable.")
 		http.Error(w, "Could not create new variable.", http.StatusInternalServerError)
 		return false
 	}
@@ -61,7 +61,7 @@ func postVariable(w http.ResponseWriter, r *http.Request, _ httprouter.Params, d
 	response, err := json.Marshal(map[string]interface{}{"id": variable.VariableID})
 
 	if err != nil {
-		log.Println("Could not generate response: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
 		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
 		return false
 	}

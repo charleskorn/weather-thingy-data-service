@@ -51,7 +51,7 @@ func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 	body, err := ioutil.ReadAll(r.Body)
 
 	if err != nil {
-		log.Println("Could not read request: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
 		http.Error(w, "Could not read request.", http.StatusInternalServerError)
 		return false
 	}
@@ -59,7 +59,7 @@ func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 	var data PostDataPoints
 
 	if err := json.Unmarshal(body, &data); err != nil {
-		log.Println("Could not unmarshal request: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
 		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
 		return false
 	}
@@ -82,7 +82,7 @@ func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 		}
 
 		if err := db.AddDataPoint(DataPoint{AgentID: agentID, VariableID: variableID, Value: point.Value, Time: data.Time}); err != nil {
-			log.Println("Could not save data: ", err)
+			log.WithFields(log.Fields{"error": err}).Error("Could not save data.")
 			http.Error(w, "Could not save data.", http.StatusInternalServerError)
 			return false
 		}
@@ -132,7 +132,7 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 		variable, err := db.GetVariableByID(variableID)
 
 		if err != nil {
-			log.Println("Could not get variable info:", err)
+			log.WithFields(log.Fields{"error": err}).Error("Could not get variable info.")
 			http.Error(w, "Could not get variable info.", http.StatusInternalServerError)
 			return false
 		}
@@ -141,7 +141,7 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 		variableResult.Points, err = db.GetData(agentID, variableID, fromTime, toTime)
 
 		if err != nil {
-			log.Println("Could not retrieve data:", err)
+			log.WithFields(log.Fields{"error": err}).Error("Could not retrieve data.")
 			http.Error(w, "Could not retrieve data.", http.StatusInternalServerError)
 			return false
 		}
@@ -152,7 +152,7 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 	response, err := json.Marshal(result)
 
 	if err != nil {
-		log.Println("Could not generate response: ", err)
+		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
 		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
 		return false
 	}

@@ -49,7 +49,7 @@ func main() {
 
 	runMigrations(config)
 
-	log.Println("Starting server...")
+	log.Printf("Starting server on %s...", config.ServerAddress)
 	startServer(config)
 
 	log.Println("Shut down normally.")

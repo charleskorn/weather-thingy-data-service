@@ -39,6 +39,24 @@ var _ = Describe("HTTP endpoints", func() {
 		removeTestDatabase(testDataSourceName, false)
 	})
 
+	Describe("/v1/ping", func() {
+		Context("GET", func() {
+			It("responds with 'pong'", func() {
+				resp, err := http.Get(urlFor("/v1/ping"))
+
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"text/plain; charset=utf-8"}))
+
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+
+				response := string(responseBytes)
+				Expect(response).To(Equal("pong"))
+			})
+		})
+	})
+
 	Describe("/v1/agents", func() {
 		Context("POST", func() {
 			It("saves the agent to the database and returns the agent ID", func() {

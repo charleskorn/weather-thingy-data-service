@@ -5,14 +5,25 @@ import (
 	"time"
 
 	"net/http"
-	"net/http/httptest"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/golang/mock/gomock"
+	"github.com/martini-contrib/render"
 )
 
 var _ = Describe("Variables resource", func() {
+	var mockController *gomock.Controller
+
+	BeforeEach(func() {
+		mockController = gomock.NewController(GinkgoT())
+	})
+
+	AfterEach(func() {
+		mockController.Finish()
+	})
+
 	Describe("data structure", func() {
 		It("can be serialised to JSON", func() {
 			variable := Variable{
@@ -40,78 +51,48 @@ var _ = Describe("Variables resource", func() {
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(body string, db Database) (*httptest.ResponseRecorder, bool) {
+		var makeRequest = func(body string, render render.Render, db Database) {
 			request, _ := http.NewRequest("POST", "/blah", strings.NewReader(body))
-			response := httptest.NewRecorder()
 
-			returnValue := postVariable(response, request, nil, db)
-
-			return response, returnValue
+			postVariable(render, request, db)
 		}
 
 		var db *MockDatabase
+		var render *MockRender
 
 		BeforeEach(func() {
-			db = &MockDatabase{}
+			db = NewMockDatabase(mockController)
+			render = NewMockRender(mockController)
 		})
 
 		Describe("when the request is valid", func() {
-			var response *httptest.ResponseRecorder
-			var responseBody string
-			var returnValue bool
+			It("saves the variable to the database and returns HTTP 201 response", func() {
+				db.EXPECT().CreateVariable(gomock.Any()).Do(func(variable *Variable) error {
+					Expect(variable.Name).To(Equal("New variable name"))
+					Expect(variable.Units).To(Equal("metres (m)"))
+					Expect(variable.VariableID).To(Equal(0))
+					Expect(variable.DisplayDecimalPlaces).To(Equal(2))
+					Expect(variable.Created).ToNot(BeTemporally("==", time.Time{}))
 
-			BeforeEach(func() {
-				db.CreateVariableInfo.VariableIDToReturn = 1019
-				response, returnValue = makeRequest(`{"name":"New variable name","units":"metres (m)","displayDecimalPlaces":2}`, db)
-				responseBody = string(response.Body.Bytes())
-			})
+					variable.VariableID = 1019
 
-			It("returns HTTP 201 response", func() {
-				Expect(response.Code).To(Equal(http.StatusCreated))
-			})
+					return nil
+				})
 
-			It("saves the variable to the database", func() {
-				Expect(db.CreateVariableInfo.Calls).To(HaveLen(1))
-				variable := db.CreateVariableInfo.Calls[0]
-				Expect(variable.Name).To(Equal("New variable name"))
-				Expect(variable.Units).To(Equal("metres (m)"))
-				Expect(variable.VariableID).To(Equal(0))
-				Expect(variable.DisplayDecimalPlaces).To(Equal(2))
-				Expect(variable.Created).ToNot(BeTemporally("==", time.Time{}))
-			})
+				render.EXPECT().JSON(http.StatusCreated, map[string]interface{}{"id": 1019})
 
-			It("returns the newly created variable's ID", func() {
-				Expect(responseBody).To(MatchJSON(`{"id":1019}`))
-			})
-
-			It("returns an appropriate Content-Type header", func() {
-				Expect(response.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
-			})
-
-			It("returns true to commit the transaction", func() {
-				Expect(returnValue).To(BeTrue())
+				makeRequest(`{"name":"New variable name","units":"metres (m)","displayDecimalPlaces":2}`, render, db)
 			})
 		})
 
 		Describe("when the request is invalid", func() {
 			TheRequestFails := func(request string) {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
-
 				BeforeEach(func() {
-					response, returnValue = makeRequest(request, db)
+					makeRequest(request, render, db)
 				})
 
 				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the variable to the database", func() {
-					Expect(len(db.CreateVariableInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
+					render.EXPECT().Error(http.StatusBadRequest)
 				})
 			}
 

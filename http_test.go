@@ -46,7 +46,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"text/plain; charset=utf-8"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"text/plain; charset=UTF-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -64,7 +64,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -102,7 +102,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -138,7 +138,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -212,7 +212,7 @@ var _ = Describe("HTTP endpoints", func() {
 				resp, err := http.Get(urlFor("/v1/agents/1004/data?variable=1005&date_from=2015-04-07T15:00:30Z&date_to=2015-04-07T15:02:30Z"))
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -232,7 +232,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
+				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())

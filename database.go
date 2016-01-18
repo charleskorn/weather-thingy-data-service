@@ -14,6 +14,7 @@ type Database interface {
 	BeginTransaction() error
 	CommitTransaction() error
 	RollbackTransaction() error
+	RollbackUncommittedTransaction() error
 
 	DB() *sql.DB
 	Transaction() *sql.Tx

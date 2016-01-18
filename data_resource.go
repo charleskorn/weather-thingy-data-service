@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-martini/martini"
+	"github.com/martini-contrib/render"
 )
 
 type DataPoint struct {
@@ -41,31 +42,39 @@ type GetDataResultVariable struct {
 	Points               map[string]float64 `json:"points"`
 }
 
-func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Params, db Database) bool {
-	agentID, ok := extractAgentID(params, w, db)
-
-	if !ok {
-		return false
+func postDataPoints(render render.Render, req *http.Request, params martini.Params, db Database) {
+	if err := db.BeginTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		render.Error(http.StatusInternalServerError)
+		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	defer db.RollbackUncommittedTransaction()
+
+	agentID, ok := extractAgentID(params, render, db)
+
+	if !ok {
+		return
+	}
+
+	body, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
-		http.Error(w, "Could not read request.", http.StatusInternalServerError)
-		return false
+		render.Error(http.StatusInternalServerError)
+		return
 	}
 
 	var data PostDataPoints
 
 	if err := json.Unmarshal(body, &data); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
-		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
-		return false
+		render.Text(http.StatusBadRequest, "Could not parse request.")
+		return
 	}
 
-	if !validatePostRequest(data, w) {
-		return false
+	if !validatePostRequest(data, render) {
+		return
 	}
 
 	for _, point := range data.Data {
@@ -73,39 +82,44 @@ func postDataPoints(w http.ResponseWriter, r *http.Request, params httprouter.Pa
 
 		if err != nil {
 			if variableID == -1 {
-				http.Error(w, fmt.Sprintf("Could not find variable with name '%v'.", point.Variable), http.StatusBadRequest)
+				render.Text(http.StatusBadRequest, fmt.Sprintf("Could not find variable with name '%v'.", point.Variable))
 			} else {
-				http.Error(w, "Could not find variable.", http.StatusInternalServerError)
+				render.Error(http.StatusInternalServerError)
 			}
 
-			return false
+			return
 		}
 
 		if err := db.AddDataPoint(DataPoint{AgentID: agentID, VariableID: variableID, Value: point.Value, Time: data.Time}); err != nil {
 			log.WithFields(log.Fields{"error": err}).Error("Could not save data.")
-			http.Error(w, "Could not save data.", http.StatusInternalServerError)
-			return false
+			render.Error(http.StatusInternalServerError)
+			return
 		}
 	}
 
-	w.WriteHeader(http.StatusCreated)
-	return true
+	if err := db.CommitTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		render.Error(http.StatusInternalServerError)
+		return
+	}
+
+	render.Status(http.StatusCreated)
 }
 
-func validatePostRequest(data PostDataPoints, w http.ResponseWriter) bool {
+func validatePostRequest(data PostDataPoints, render render.Render) bool {
 	if data.Time.Equal(time.Time{}) {
-		http.Error(w, "Must specify time value.", http.StatusBadRequest)
+		render.Text(http.StatusBadRequest, "Must specify time value.")
 		return false
 	}
 
 	if len(data.Data) == 0 {
-		http.Error(w, "Must include at least one data point.", http.StatusBadRequest)
+		render.Text(http.StatusBadRequest, "Must include at least one data point.")
 		return false
 	}
 
 	for _, point := range data.Data {
 		if point.Variable == "" {
-			http.Error(w, "Must include variable name.", http.StatusBadRequest)
+			render.Text(http.StatusBadRequest, "Must include variable name.")
 			return false
 		}
 	}
@@ -113,17 +127,25 @@ func validatePostRequest(data PostDataPoints, w http.ResponseWriter) bool {
 	return true
 }
 
-func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, db Database) bool {
-	agentID, ok := extractAgentID(params, w, db)
-
-	if !ok {
-		return false
+func getData(render render.Render, req *http.Request, params martini.Params, db Database) {
+	if err := db.BeginTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		render.Error(http.StatusInternalServerError)
+		return
 	}
 
-	variables, fromTime, toTime, ok := extractGetParameters(w, r)
+	defer db.RollbackUncommittedTransaction()
+
+	agentID, ok := extractAgentID(params, render, db)
 
 	if !ok {
-		return false
+		return
+	}
+
+	variables, fromTime, toTime, ok := extractGetParameters(render, req)
+
+	if !ok {
+		return
 	}
 
 	result := GetDataResult{}
@@ -133,8 +155,8 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 
 		if err != nil {
 			log.WithFields(log.Fields{"error": err}).Error("Could not get variable info.")
-			http.Error(w, "Could not get variable info.", http.StatusInternalServerError)
-			return false
+			render.Error(http.StatusInternalServerError)
+			return
 		}
 
 		variableResult := GetDataResultVariable{VariableID: variableID, Name: variable.Name, Units: variable.Units, DisplayDecimalPlaces: variable.DisplayDecimalPlaces}
@@ -142,70 +164,64 @@ func getData(w http.ResponseWriter, r *http.Request, params httprouter.Params, d
 
 		if err != nil {
 			log.WithFields(log.Fields{"error": err}).Error("Could not retrieve data.")
-			http.Error(w, "Could not retrieve data.", http.StatusInternalServerError)
-			return false
+			render.Error(http.StatusInternalServerError)
+			return
 		}
 
 		result.Data = append(result.Data, variableResult)
 	}
 
-	response, err := json.Marshal(result)
-
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
-		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
-		return false
+	if err := db.CommitTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		render.Error(http.StatusInternalServerError)
+		return
 	}
 
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
-
-	return true
+	render.JSON(http.StatusOK, result)
 }
 
-func extractGetParameters(w http.ResponseWriter, r *http.Request) ([]int, time.Time, time.Time, bool) {
-	if r.URL.Query().Get("variable") == "" {
-		http.Error(w, "Must specify variable with 'variable' URL parameter.", http.StatusBadRequest)
+func extractGetParameters(render render.Render, req *http.Request) ([]int, time.Time, time.Time, bool) {
+	if req.URL.Query().Get("variable") == "" {
+		render.Text(http.StatusBadRequest, "Must specify variable with 'variable' URL parameter.")
 		return nil, time.Time{}, time.Time{}, false
 	}
 
-	if r.URL.Query().Get("date_from") == "" {
-		http.Error(w, "Must specify to date with 'date_from' URL parameter.", http.StatusBadRequest)
+	if req.URL.Query().Get("date_from") == "" {
+		render.Text(http.StatusBadRequest, "Must specify to date with 'date_from' URL parameter.")
 		return nil, time.Time{}, time.Time{}, false
 	}
 
-	if r.URL.Query().Get("date_to") == "" {
-		http.Error(w, "Must specify from date with 'date_to' URL parameter.", http.StatusBadRequest)
+	if req.URL.Query().Get("date_to") == "" {
+		render.Text(http.StatusBadRequest, "Must specify from date with 'date_to' URL parameter.")
 		return nil, time.Time{}, time.Time{}, false
 	}
 
-	fromDate, err := time.Parse(time.RFC3339, r.URL.Query().Get("date_from"))
+	fromDate, err := time.Parse(time.RFC3339, req.URL.Query().Get("date_from"))
 
 	if err != nil {
-		http.Error(w, "Cannot parse from date value.", http.StatusBadRequest)
+		render.Text(http.StatusBadRequest, "Cannot parse from date value.")
 		return nil, time.Time{}, time.Time{}, false
 	}
 
-	toDate, err := time.Parse(time.RFC3339, r.URL.Query().Get("date_to"))
+	toDate, err := time.Parse(time.RFC3339, req.URL.Query().Get("date_to"))
 
 	if err != nil {
-		http.Error(w, "Cannot parse to date value.", http.StatusBadRequest)
+		render.Text(http.StatusBadRequest, "Cannot parse to date value.")
 		return nil, time.Time{}, time.Time{}, false
 	}
 
 	if fromDate.After(toDate) {
-		http.Error(w, "From date is after to date.", http.StatusBadRequest)
+		render.Text(http.StatusBadRequest, "From date is after to date.")
 		return nil, time.Time{}, time.Time{}, false
 	}
 
 	variables := []int{}
 
-	for _, rawID := range r.URL.Query()["variable"] {
+	for _, rawID := range req.URL.Query()["variable"] {
 		id, err := strconv.Atoi(rawID)
 
 		if err != nil {
-			http.Error(w, fmt.Sprintf("Variable '%v' is not an integer.", id), http.StatusBadRequest)
+			render.Text(http.StatusBadRequest, fmt.Sprintf("Variable '%v' is not an integer.", id))
 			return nil, time.Time{}, time.Time{}, false
 		}
 

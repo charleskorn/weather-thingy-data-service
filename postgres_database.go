@@ -89,6 +89,14 @@ func (d *PostgresDatabase) RollbackTransaction() error {
 	return nil
 }
 
+func (d *PostgresDatabase) RollbackUncommittedTransaction() error {
+	if d.CurrentTransaction == nil {
+		return nil
+	}
+
+	return d.RollbackTransaction()
+}
+
 func (d *PostgresDatabase) CreateAgent(agent *Agent) error {
 	if err := d.ensureTransaction(); err != nil {
 		return err

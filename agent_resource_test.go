@@ -3,16 +3,27 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-martini/martini"
+	"github.com/golang/mock/gomock"
+	"github.com/martini-contrib/render"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Agent resource", func() {
+	var mockController *gomock.Controller
+
+	BeforeEach(func() {
+		mockController = gomock.NewController(GinkgoT())
+	})
+
+	AfterEach(func() {
+		mockController.Finish()
+	})
+
 	Describe("data structure", func() {
 		It("can be serialised to JSON", func() {
 			agent := Agent{AgentID: 1039, Name: "Cool agent", Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
@@ -34,76 +45,56 @@ var _ = Describe("Agent resource", func() {
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(body string, db Database) (*httptest.ResponseRecorder, bool) {
+		var makeRequest = func(body string, render render.Render, db Database) {
 			request, _ := http.NewRequest("POST", "/blah", strings.NewReader(body))
-			response := httptest.NewRecorder()
 
-			returnValue := postAgent(response, request, nil, db)
-
-			return response, returnValue
+			postAgent(render, request, db)
 		}
 
+		var render *MockRender
 		var db *MockDatabase
 
 		BeforeEach(func() {
-			db = &MockDatabase{}
+			render = NewMockRender(mockController)
+			db = NewMockDatabase(mockController)
 		})
 
 		Describe("when the request is valid", func() {
-			var response *httptest.ResponseRecorder
-			var responseBody string
-			var returnValue bool
+			It("saves the agent to the database and returns the ID of the newly created agent", func() {
+				agentId := 1019
 
-			BeforeEach(func() {
-				db.CreateAgentInfo.AgentIDToReturn = 1019
-				response, returnValue = makeRequest(`{"name":"New agent name"}`, db)
-				responseBody = string(response.Body.Bytes())
-			})
+				createCall := db.EXPECT().CreateAgent(gomock.Any()).Do(func(agent *Agent) error {
+					Expect(agent.Name).To(Equal("New agent name"))
+					Expect(agent.AgentID).To(Equal(0))
+					Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
 
-			It("returns HTTP 201 response", func() {
-				Expect(response.Code).To(Equal(http.StatusCreated))
-			})
+					agent.AgentID = agentId
 
-			It("saves the agent to the database", func() {
-				Expect(db.CreateAgentInfo.Calls).To(HaveLen(1))
-				agent := db.CreateAgentInfo.Calls[0]
-				Expect(agent.Name).To(Equal("New agent name"))
-				Expect(agent.AgentID).To(Equal(0))
-				Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
-			})
+					return nil
+				})
 
-			It("returns the newly created agent's ID", func() {
-				Expect(responseBody).To(Equal(`{"id":1019}`))
-			})
+				jsonCall := render.EXPECT().JSON(http.StatusCreated, gomock.Any()).Do(func(status int, value interface{}) {
+					Expect(value).To(HaveKeyWithValue("id", agentId))
+				})
 
-			It("returns an appropriate Content-Type header", func() {
-				Expect(response.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
-			})
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					createCall,
+					db.EXPECT().CommitTransaction(),
+					jsonCall,
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
 
-			It("returns true to commit the transaction", func() {
-				Expect(returnValue).To(BeTrue())
+				makeRequest(`{"name":"New agent name"}`, render, db)
 			})
 		})
 
 		Describe("when the request is invalid", func() {
 			TheRequestFails := func(request string) {
-				var response *httptest.ResponseRecorder
-				var returnValue bool
+				It("returns HTTP 400 and does not save the agent to the database", func() {
+					render.EXPECT().Text(http.StatusBadRequest, gomock.Any())
 
-				BeforeEach(func() {
-					response, returnValue = makeRequest(request, db)
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-
-				It("does not save the agent to the database", func() {
-					Expect(len(db.CreateAgentInfo.Calls)).To(Equal(0))
-				})
-
-				It("returns false to rollback the transaction", func() {
-					Expect(returnValue).To(BeFalse())
+					makeRequest(request, render, db)
 				})
 			}
 
@@ -118,104 +109,105 @@ var _ = Describe("Agent resource", func() {
 	})
 
 	Describe("GET all request handler", func() {
-		var makeRequest = func(db Database) *httptest.ResponseRecorder {
-			request, _ := http.NewRequest("GET", "/blah", strings.NewReader(""))
-			response := httptest.NewRecorder()
-
-			getAllAgents(response, request, nil, db)
-
-			return response
-		}
-
+		var render *MockRender
 		var db *MockDatabase
 
+		var agents []Agent = []Agent{
+			Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
+		}
+
 		BeforeEach(func() {
-			db = &MockDatabase{}
-			db.GetAllAgentsInfo.AgentsToReturn = []Agent{
-				Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
-			}
+			render = NewMockRender(mockController)
+			db = NewMockDatabase(mockController)
 		})
 
 		It("returns a list of all agents", func() {
-			resp := makeRequest(db)
+			db.EXPECT().GetAllAgents().Return(agents, nil)
+			render.EXPECT().JSON(http.StatusOK, agents)
 
-			Expect(resp.Code).To(Equal(http.StatusOK))
-			Expect(resp.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
-			Expect(string(resp.Body.Bytes())).To(MatchJSON(`[{"id":1234,"name":"The name","created":"2015-03-27T08:00:00Z"}]`))
+			getAllAgents(render, db)
 		})
 	})
 
 	Describe("GET agent request handler", func() {
-		var makeRequest = func(db Database, agentID string) *httptest.ResponseRecorder {
-			request, _ := http.NewRequest("GET", "/blah", strings.NewReader(""))
-			response := httptest.NewRecorder()
-			params := httprouter.Params{httprouter.Param{Key: "agent_id", Value: agentID}}
+		var makeRequest = func(render render.Render, db Database, agentID string) {
+			params := martini.Params{
+				"agent_id": agentID,
+			}
 
-			getAgent(response, request, params, db)
-
-			return response
+			getAgent(render, params, db)
 		}
 
 		var db *MockDatabase
+		var render *MockRender
 
 		BeforeEach(func() {
-			db = &MockDatabase{}
-			db.CheckAgentIDExistsInfo.AgentIDs = []int{1234}
-			db.GetVariablesForAgentInfo.Variables = []Variable{
-				Variable{VariableID: 2001, Name: "distance", Units: "metres", DisplayDecimalPlaces: 1, Created: time.Date(2015, 3, 20, 18, 0, 0, 0, time.UTC)},
-			}
-			db.GetAgentByIDInfo.Agents = map[int]Agent{
-				1234: Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
-			}
+			db = NewMockDatabase(mockController)
+			render = NewMockRender(mockController)
 		})
 
 		Context("when the request is valid", func() {
-			var resp *httptest.ResponseRecorder
+			It("returns HTTP 200 response with the details of the agent", func() {
+				getAgentCall := db.EXPECT().GetAgentByID(1234).Return(
+					Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
+					nil)
 
-			BeforeEach(func() {
-				resp = makeRequest(db, "1234")
-			})
+				getVariablesCall := db.EXPECT().GetVariablesForAgent(1234).Return(
+					[]Variable{
+						Variable{VariableID: 2001, Name: "distance", Units: "metres", DisplayDecimalPlaces: 1, Created: time.Date(2015, 3, 20, 18, 0, 0, 0, time.UTC)},
+					},
+					nil)
 
-			It("returns HTTP 200 response", func() {
-				Expect(resp.Code).To(Equal(http.StatusOK))
-			})
+				jsonCall := render.EXPECT().JSON(http.StatusOK, gomock.Any()).Do(func(status int, value interface{}) {
+					bytes, err := json.Marshal(value)
+					Expect(err).To(BeNil())
 
-			It("returns an appropriate Content-Type header", func() {
-				Expect(resp.HeaderMap).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=utf-8"}))
-			})
+					json := string(bytes)
+					Expect(json).To(MatchJSON(`{` +
+						`"id":1234,` +
+						`"name":"The name",` +
+						`"created":"2015-03-27T08:00:00Z",` +
+						`"variables":[{"id":2001,"name":"distance","units":"metres","displayDecimalPlaces":1,"created":"2015-03-20T18:00:00Z"}]` +
+						`}`))
+				})
 
-			It("returns the details of the agent", func() {
-				Expect(string(resp.Body.Bytes())).To(MatchJSON(`{` +
-					`"id":1234,` +
-					`"name":"The name",` +
-					`"created":"2015-03-27T08:00:00Z",` +
-					`"variables":[{"id":2001,"name":"distance","units":"metres","displayDecimalPlaces":1,"created":"2015-03-20T18:00:00Z"}]` +
-					`}`))
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					db.EXPECT().CheckAgentIDExists(1234).Return(true, nil),
+					getAgentCall,
+					getVariablesCall,
+					db.EXPECT().CommitTransaction(),
+					jsonCall,
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				makeRequest(render, db, "1234")
 			})
 		})
 
 		Context("when the request is invalid", func() {
 			Context("because the agent does not exist", func() {
-				var resp *httptest.ResponseRecorder
-
-				BeforeEach(func() {
-					resp = makeRequest(db, "5")
-				})
-
 				It("returns HTTP 404 response", func() {
-					Expect(resp.Code).To(Equal(http.StatusNotFound))
+					gomock.InOrder(
+						db.EXPECT().BeginTransaction(),
+						db.EXPECT().CheckAgentIDExists(5).Return(false, nil),
+						render.EXPECT().Text(http.StatusNotFound, gomock.Any()),
+						db.EXPECT().RollbackUncommittedTransaction(),
+					)
+
+					makeRequest(render, db, "5")
 				})
 			})
 
 			Context("because the agent ID is not an integer", func() {
-				var resp *httptest.ResponseRecorder
+				It("returns HTTP 404 response", func() {
+					gomock.InOrder(
+						db.EXPECT().BeginTransaction(),
+						render.EXPECT().Text(http.StatusNotFound, gomock.Any()),
+						db.EXPECT().RollbackUncommittedTransaction(),
+					)
 
-				BeforeEach(func() {
-					resp = makeRequest(db, "abc")
-				})
-
-				It("returns HTTP 400 response", func() {
-					Expect(resp.Code).To(Equal(http.StatusBadRequest))
+					makeRequest(render, db, "abc")
 				})
 			})
 		})

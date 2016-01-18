@@ -10,9 +10,12 @@ clean:
 setup:
 	go get -t -v
 	go get -v github.com/jteeuwen/go-bindata/...
+	go get -v github.com/golang/mock/mockgen
 
 generate:
 	go-bindata -pkg main -o bindata.go db/migrations/
+	mockgen -package=main -destination=mock_render.go "github.com/martini-contrib/render" Render
+	mockgen -package=main -source=database.go -destination=mock_database.go
 
 build: generate
 	go build -o weather-thingy-data-service

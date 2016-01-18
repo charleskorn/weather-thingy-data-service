@@ -167,6 +167,29 @@ var _ = Describe("PostgresDatabase", func() {
 		})
 	})
 
+	Describe("RollbackUncommittedTransaction", func() {
+		Context("when there is no active transaction", func() {
+			It("does not return an error", func() {
+				Expect(db.RollbackUncommittedTransaction()).To(BeNil())
+			})
+		})
+
+		Context("when there is an active transaction", func() {
+			BeforeEach(func() {
+				Expect(db.BeginTransaction()).To(BeNil())
+			})
+
+			It("does not return an error", func() {
+				Expect(db.RollbackUncommittedTransaction()).To(BeNil())
+			})
+
+			It("sets Transaction to nil", func() {
+				db.RollbackUncommittedTransaction()
+				Expect(db.Transaction()).To(BeNil())
+			})
+		})
+	})
+
 	Context("when connected to a database with all migrations applied", func() {
 		BeforeEach(func() {
 			db.RunMigrations()

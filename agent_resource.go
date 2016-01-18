@@ -7,7 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-martini/martini"
+	"github.com/martini-contrib/render"
 	"strconv"
 )
 
@@ -17,77 +18,78 @@ type Agent struct {
 	Created time.Time `json:"created"`
 }
 
-func postAgent(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db Database) bool {
-	body, err := ioutil.ReadAll(r.Body)
+func postAgent(r render.Render, req *http.Request, db Database) {
+	body, err := ioutil.ReadAll(req.Body)
 
 	if err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
-		http.Error(w, "Could not read request.", http.StatusInternalServerError)
-		return false
+		r.Error(http.StatusInternalServerError)
+		return
 	}
 
 	var agent Agent
 
 	if err := json.Unmarshal(body, &agent); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
-		http.Error(w, "Could not parse request body.", http.StatusBadRequest)
-		return false
+		r.Error(http.StatusBadRequest)
+		return
 	}
 
 	if agent.Name == "" {
-		http.Error(w, "Must specify name.", http.StatusBadRequest)
-		return false
+		r.Text(http.StatusBadRequest, "Must specify name.")
+		return
 	}
 
 	agent.Created = time.Now()
 
+	if err := db.BeginTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		r.Error(http.StatusInternalServerError)
+		return
+	}
+
+	defer db.RollbackUncommittedTransaction()
+
 	if err := db.CreateAgent(&agent); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not create new agent.")
-		http.Error(w, "Could not create new agent.", http.StatusInternalServerError)
-		return false
+		r.Error(http.StatusInternalServerError)
+		return
 	}
 
-	response, err := json.Marshal(map[string]interface{}{"id": agent.AgentID})
-
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
-		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
-		return false
+	if err := db.CommitTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		r.Error(http.StatusInternalServerError)
+		return
 	}
 
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusCreated)
-	w.Write(response)
-	return true
+	r.JSON(http.StatusCreated, map[string]interface{}{"id": agent.AgentID})
 }
 
-func getAllAgents(w http.ResponseWriter, r *http.Request, _ httprouter.Params, db Database) {
+func getAllAgents(r render.Render, db Database) {
 	agents, err := db.GetAllAgents()
 
 	if err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not get all agents.")
-		http.Error(w, "Could not get all agents.", http.StatusInternalServerError)
+		r.Error(http.StatusInternalServerError)
 		return
 	}
 
-	response, err := json.Marshal(agents)
-
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
-		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
+	r.JSON(http.StatusOK, agents)
 }
 
-func getAgent(w http.ResponseWriter, r *http.Request, params httprouter.Params, db Database) bool {
-	agentID, ok := extractAgentID(params, w, db)
+func getAgent(r render.Render, params martini.Params, db Database) {
+	if err := db.BeginTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		r.Error(http.StatusInternalServerError)
+		return
+	}
+
+	defer db.RollbackUncommittedTransaction()
+
+	agentID, ok := extractAgentID(params, r, db)
 
 	if !ok {
-		return false
+		return
 	}
 
 	agent := struct {
@@ -99,45 +101,40 @@ func getAgent(w http.ResponseWriter, r *http.Request, params httprouter.Params, 
 
 	if agent.Agent, err = db.GetAgentByID(agentID); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not agent info.")
-		http.Error(w, "Could not get agent details.", http.StatusInternalServerError)
-		return false
+		r.Error(http.StatusInternalServerError)
+		return
 	}
 
 	if agent.Variables, err = db.GetVariablesForAgent(agentID); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not get variables for agent.")
-		http.Error(w, "Could not get some agent details.", http.StatusInternalServerError)
-		return false
+		r.Error(http.StatusInternalServerError)
+		return
 	}
 
-	response, err := json.Marshal(agent)
-
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not generate response.")
-		http.Error(w, "Could not generate response.", http.StatusInternalServerError)
-		return false
+	if err := db.CommitTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		r.Error(http.StatusInternalServerError)
+		return
 	}
 
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write(response)
-	return false
+	r.JSON(http.StatusOK, agent)
 }
 
-func extractAgentID(params httprouter.Params, w http.ResponseWriter, db Database) (int, bool) {
-	rawAgentID := params.ByName("agent_id")
+func extractAgentID(params martini.Params, r render.Render, db Database) (int, bool) {
+	rawAgentID := params["agent_id"]
 	agentID, err := strconv.Atoi(rawAgentID)
 
 	if err != nil {
-		http.Error(w, "Invalid agent ID.", http.StatusBadRequest)
+		r.Text(http.StatusNotFound, "Invalid agent ID.")
 		return 0, false
 	}
 
 	if exists, err := db.CheckAgentIDExists(agentID); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not check if agent exists.")
-		http.Error(w, "Could not check if agent exists.", http.StatusInternalServerError)
+		r.Error(http.StatusInternalServerError)
 		return 0, false
 	} else if !exists {
-		http.Error(w, "Agent does not exist.", http.StatusNotFound)
+		r.Text(http.StatusNotFound, "Agent does not exist.")
 		return 0, false
 	}
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 )
@@ -262,37 +263,73 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/variables", func() {
 		Context("POST", func() {
-			It("saves the variable to the database and returns the variable ID", func() {
-				resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
+			var db Database
 
+			BeforeEach(func() {
+				var err error
+				db, err = connectToDatabase(testDataSourceName)
 				Expect(err).To(BeNil())
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(haveJSONContentType())
+			})
 
-				responseBytes, err := ioutil.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
+			AfterEach(func() {
+				db.Close()
+			})
 
-				var response map[string]interface{}
-				err = json.Unmarshal(responseBytes, &response)
+			Context("when the variable is valid", func() {
+				It("saves the variable to the database and returns the variable ID", func() {
+					resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
 
-				Expect(err).To(BeNil())
-				Expect(response).To(HaveKey("id"))
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+					Expect(resp.Header).To(haveJSONContentType())
 
-				db, err := connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-				defer db.Close()
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).To(BeNil())
 
-				id := int(response["id"].(float64))
-				var name, units string
-				var created time.Time
-				var displayDecimalPlaces int
-				row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
-				err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
-				Expect(err).To(BeNil())
-				Expect(name).To(Equal("New variable name"))
-				Expect(units).To(Equal("seconds (s)"))
-				Expect(displayDecimalPlaces).To(Equal(2))
-				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
+					var response map[string]interface{}
+					err = json.Unmarshal(responseBytes, &response)
+
+					Expect(err).To(BeNil())
+					Expect(response).To(HaveKey("id"))
+
+					id := int(response["id"].(float64))
+					var name, units string
+					var created time.Time
+					var displayDecimalPlaces int
+					row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
+					err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
+					Expect(err).To(BeNil())
+					Expect(name).To(Equal("New variable name"))
+					Expect(units).To(Equal("seconds (s)"))
+					Expect(displayDecimalPlaces).To(Equal(2))
+					Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
+				})
+			})
+
+			Context("when the variable is invalid", func() {
+				DescribeTable("it does not save the variable to the database and returns a HTTP 4xx response", func(body string, status int) {
+					var count int
+					err := db.DB().QueryRow("SELECT COUNT(*) FROM variables;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+
+					resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(body))
+
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(status))
+					Expect(resp.Header).To(haveJSONContentType())
+
+					err = db.DB().QueryRow("SELECT COUNT(*) FROM variables;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+				},
+					Entry("because there are no fields", `{}`, 422),
+					Entry("because the name field is empty", `{"name":"","units":"something","displayDecimalPlaces":1}`, 422),
+					Entry("because the name field is missing", `{"units":"something","displayDecimalPlaces":1}`, 422),
+					Entry("because the units field is empty", `{"name":"something","units":"","displayDecimalPlaces":1}`, 422),
+					Entry("because the units field is missing", `{"name":"something","displayDecimalPlaces":1}`, 422),
+					Entry("because the display decimal places field is not an integer", `{"name":"something","units":"something","displayDecimalPlaces":"abc"}`, http.StatusBadRequest),
+					Entry("because the display decimal places field is negative", `{"name":"something","units":"something","displayDecimalPlaces":-1}`, 422))
 			})
 		})
 	})

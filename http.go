@@ -35,7 +35,7 @@ func startServer(config Config) {
 		g.Get("/agents/:agent_id", withDatabaseConnection, getAgent)
 		g.Get("/agents/:agent_id/data", withDatabaseConnection, getData)
 		g.Post("/agents/:agent_id/data", withDatabaseConnection, postDataPoints)
-		g.Post("/variables", withDatabaseConnection, postVariable)
+		g.Post("/variables", withDatabaseConnection, binding.Bind(Variable{}), postVariable)
 	})
 
 	m.MapTo(r, (*martini.Routes)(nil))

@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"net/http"
-	"strings"
 
 	"github.com/golang/mock/gomock"
-	"github.com/martini-contrib/render"
+	"github.com/martini-contrib/binding"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -48,15 +47,44 @@ var _ = Describe("Variables resource", func() {
 			Expect(err).To(BeNil())
 			Expect(variable).To(Equal(expectedVariable))
 		})
+
+		Describe("validation", func() {
+			It("succeeds if all properties are set to valid values", func() {
+				errors := TestValidation(Variable{Name: "Distance", Units: "metres (m)", DisplayDecimalPlaces: 2})
+				Expect(errors).To(BeEmpty())
+			})
+
+			It("fails if name property is not set", func() {
+				errors := TestValidation(Variable{Units: "metres (m)", DisplayDecimalPlaces: 2})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("name"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+
+			It("fails if units property is not set", func() {
+				errors := TestValidation(Variable{Name: "Distance", DisplayDecimalPlaces: 2})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("units"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+
+			It("fails if display decimal places property is zero", func() {
+				errors := TestValidation(Variable{Name: "Distance", Units: "metres (m)", DisplayDecimalPlaces: 0})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("displayDecimalPlaces"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+
+			It("fails if display decimal places property is negative", func() {
+				errors := TestValidation(Variable{Name: "Distance", Units: "metres (m)", DisplayDecimalPlaces: -1})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("displayDecimalPlaces"))
+				Expect(errors[0].Classification).To(Equal("OutOfRangeError"))
+			})
+		})
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(body string, render render.Render, db Database) {
-			request, _ := http.NewRequest("POST", "/blah", strings.NewReader(body))
-
-			postVariable(render, request, db)
-		}
-
 		var db *MockDatabase
 		var render *MockRender
 
@@ -65,68 +93,29 @@ var _ = Describe("Variables resource", func() {
 			render = NewMockRender(mockController)
 		})
 
-		Describe("when the request is valid", func() {
-			It("saves the variable to the database and returns HTTP 201 response", func() {
-				createVariableCall := db.EXPECT().CreateVariable(gomock.Any()).Do(func(variable *Variable) error {
-					Expect(variable.Name).To(Equal("New variable name"))
-					Expect(variable.Units).To(Equal("metres (m)"))
-					Expect(variable.VariableID).To(Equal(0))
-					Expect(variable.DisplayDecimalPlaces).To(Equal(2))
-					Expect(variable.Created).ToNot(BeTemporally("==", time.Time{}))
+		It("saves the variable to the database and returns HTTP 201 response", func() {
+			createVariableCall := db.EXPECT().CreateVariable(gomock.Any()).Do(func(variable *Variable) error {
+				Expect(variable.Name).To(Equal("New variable name"))
+				Expect(variable.Units).To(Equal("metres (m)"))
+				Expect(variable.VariableID).To(Equal(0))
+				Expect(variable.DisplayDecimalPlaces).To(Equal(2))
+				Expect(variable.Created).ToNot(BeTemporally("==", time.Time{}))
 
-					variable.VariableID = 1019
+				variable.VariableID = 1019
 
-					return nil
-				})
-
-				gomock.InOrder(
-					db.EXPECT().BeginTransaction(),
-					createVariableCall,
-					db.EXPECT().CommitTransaction(),
-					render.EXPECT().JSON(http.StatusCreated, map[string]interface{}{"id": 1019}),
-					db.EXPECT().RollbackUncommittedTransaction(),
-				)
-
-				makeRequest(`{"name":"New variable name","units":"metres (m)","displayDecimalPlaces":2}`, render, db)
-			})
-		})
-
-		Describe("when the request is invalid", func() {
-			TheRequestFails := func(request string) {
-				It("returns HTTP 400 response", func() {
-					render.EXPECT().Text(http.StatusBadRequest, gomock.Any())
-
-					makeRequest(request, render, db)
-				})
-			}
-
-			Describe("because there are no fields", func() {
-				TheRequestFails(`{}`)
+				return nil
 			})
 
-			Describe("because the name field is empty", func() {
-				TheRequestFails(`{"name":"","units":"something","displayDecimalPlaces":1}`)
-			})
+			gomock.InOrder(
+				db.EXPECT().BeginTransaction(),
+				createVariableCall,
+				db.EXPECT().CommitTransaction(),
+				render.EXPECT().JSON(http.StatusCreated, map[string]interface{}{"id": 1019}),
+				db.EXPECT().RollbackUncommittedTransaction(),
+			)
 
-			Describe("because the name field is missing", func() {
-				TheRequestFails(`{"units":"something","displayDecimalPlaces":1}`)
-			})
-
-			Describe("because the units field is empty", func() {
-				TheRequestFails(`{"name":"something","units":"","displayDecimalPlaces":1}`)
-			})
-
-			Describe("because the units field is missing", func() {
-				TheRequestFails(`{"name":"something","displayDecimalPlaces":1}`)
-			})
-
-			Describe("because the display decimal places field is not an integer", func() {
-				TheRequestFails(`{"name":"something","units":"something","displayDecimalPlaces":"abc"}`)
-			})
-
-			Describe("because the display decimal places field is negative", func() {
-				TheRequestFails(`{"name":"something","units":"something","displayDecimalPlaces":-1}`)
-			})
+			variable := Variable{Name: "New variable name", Units: "metres (m)", DisplayDecimalPlaces: 2}
+			postVariable(render, variable, db)
 		})
 	})
 })

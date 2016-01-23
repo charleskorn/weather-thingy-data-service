@@ -14,7 +14,8 @@ import (
 )
 
 const (
-	TestingAddress = ":8081"
+	TestingAddress            = ":8081"
+	StatusUnprocessableEntity = 422
 )
 
 func urlFor(path string) string {
@@ -96,7 +97,7 @@ var _ = Describe("HTTP endpoints", func() {
 			})
 
 			Context("when the agent is invalid", func() {
-				It("does not save the agent to the database and returns a HTTP 422 response", func() {
+				It("does not save the agent to the database and returns a HTTP StatusUnprocessableEntity response", func() {
 					var count int
 					err := db.DB().QueryRow("SELECT COUNT(*) FROM agents;").Scan(&count)
 					Expect(err).To(BeNil())
@@ -105,7 +106,7 @@ var _ = Describe("HTTP endpoints", func() {
 					resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":""}`))
 
 					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(422))
+					Expect(resp.StatusCode).To(Equal(StatusUnprocessableEntity))
 					Expect(resp.Header).To(haveJSONContentType())
 
 					err = db.DB().QueryRow("SELECT COUNT(*) FROM agents;").Scan(&count)
@@ -231,12 +232,12 @@ var _ = Describe("HTTP endpoints", func() {
 					Expect(err).To(BeNil())
 					Expect(count).To(Equal(0))
 				},
-					Entry("because there are no fields", `{}`, 422),
+					Entry("because there are no fields", `{}`, StatusUnprocessableEntity),
 					Entry("because the time field is empty", `{"time":"","data":[{"variable":"temperature","value":10}]}`, http.StatusBadRequest),
-					Entry("because the time field is missing", `{"data":[{"variable":"temperature","value":10}]}`, 422),
-					Entry("because the data field is empty", `{"time":"2015-01-02T03:04:05Z","data":[]}`, 422),
-					Entry("because the variable field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"","value":10}]}`, 422),
-					Entry("because the variable field is missing", `{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, 422),
+					Entry("because the time field is missing", `{"data":[{"variable":"temperature","value":10}]}`, StatusUnprocessableEntity),
+					Entry("because the data field is empty", `{"time":"2015-01-02T03:04:05Z","data":[]}`, StatusUnprocessableEntity),
+					Entry("because the variable field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"","value":10}]}`, StatusUnprocessableEntity),
+					Entry("because the variable field is missing", `{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, StatusUnprocessableEntity),
 					Entry("because the value field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":""}]}`, http.StatusBadRequest),
 					Entry("because the time field is in an invalid format", `{"time":"blah","data":[{"variable":"temperature","value":10}]}`, http.StatusBadRequest),
 					Entry("because the value field is not a number", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":"abc"}]}`, http.StatusBadRequest))
@@ -318,13 +319,13 @@ var _ = Describe("HTTP endpoints", func() {
 					Expect(err).To(BeNil())
 					Expect(count).To(Equal(0))
 				},
-					Entry("because there are no fields", `{}`, 422),
-					Entry("because the name field is empty", `{"name":"","units":"something","displayDecimalPlaces":1}`, 422),
-					Entry("because the name field is missing", `{"units":"something","displayDecimalPlaces":1}`, 422),
-					Entry("because the units field is empty", `{"name":"something","units":"","displayDecimalPlaces":1}`, 422),
-					Entry("because the units field is missing", `{"name":"something","displayDecimalPlaces":1}`, 422),
+					Entry("because there are no fields", `{}`, StatusUnprocessableEntity),
+					Entry("because the name field is empty", `{"name":"","units":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
+					Entry("because the name field is missing", `{"units":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
+					Entry("because the units field is empty", `{"name":"something","units":"","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
+					Entry("because the units field is missing", `{"name":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
 					Entry("because the display decimal places field is not an integer", `{"name":"something","units":"something","displayDecimalPlaces":"abc"}`, http.StatusBadRequest),
-					Entry("because the display decimal places field is negative", `{"name":"something","units":"something","displayDecimalPlaces":-1}`, 422))
+					Entry("because the display decimal places field is negative", `{"name":"something","units":"something","displayDecimalPlaces":-1}`, StatusUnprocessableEntity))
 			})
 		})
 	})

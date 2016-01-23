@@ -96,6 +96,7 @@ var _ = Describe("HTTP endpoints", func() {
 				})
 			})
 
+			// FIXME This test doesn't really belong at this level
 			Context("when the agent is invalid", func() {
 				It("does not save the agent to the database and returns a HTTP StatusUnprocessableEntity response", func() {
 					var count int
@@ -215,6 +216,7 @@ var _ = Describe("HTTP endpoints", func() {
 				})
 			})
 
+			// FIXME These tests don't really belong at this level
 			Context("when the data is invalid", func() {
 				DescribeTable("it does not save the data to the database and returns a HTTP 4xx response", func(body string, status int) {
 					var count int
@@ -302,6 +304,7 @@ var _ = Describe("HTTP endpoints", func() {
 				})
 			})
 
+			// FIXME These tests don't really belong at this level
 			Context("when the variable is invalid", func() {
 				DescribeTable("it does not save the variable to the database and returns a HTTP 4xx response", func(body string, status int) {
 					var count int

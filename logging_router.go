@@ -2,58 +2,35 @@ package main
 
 import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/go-martini/martini"
 	"net/http"
 	"time"
 )
 
-type LoggingRouter struct {
-	Handler http.Handler
-}
+func Log() martini.Handler {
+	return func(res http.ResponseWriter, req *http.Request, c martini.Context) {
+		log.WithFields(log.Fields{
+			"method":              req.Method,
+			"url":                 req.URL.String(),
+			"remoteAddress":       req.RemoteAddr,
+			"requestLength":       req.ContentLength,
+		}).Info("Request processing started.")
 
-type LoggingResponseWriter struct {
-	Status       int
-	ResponseSize int
-	RealWriter   http.ResponseWriter
-}
+		start := time.Now()
 
-func (r LoggingRouter) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	log.WithFields(log.Fields{
-		"method":        request.Method,
-		"url":           request.URL.String(),
-		"remoteAddress": request.RemoteAddr,
-		"requestLength": request.ContentLength,
-	}).Info("Request received.")
+		rw := res.(martini.ResponseWriter)
+		c.Next()
 
-	interceptor := LoggingResponseWriter{Status: http.StatusOK, RealWriter: writer}
-	startTime := time.Now()
-
-	defer func() {
-		elapsed := time.Now().Sub(startTime) / time.Millisecond
+		elapsed := time.Since(start).Seconds() * 1000
 
 		log.WithFields(log.Fields{
-			"method":              request.Method,
-			"url":                 request.URL.String(),
-			"remoteAddress":       request.RemoteAddr,
-			"requestLength":       request.ContentLength,
-			"responseStatus":      interceptor.Status,
-			"responseLength":      interceptor.ResponseSize,
+			"method":              req.Method,
+			"url":                 req.URL.String(),
+			"remoteAddress":       req.RemoteAddr,
+			"requestLength":       req.ContentLength,
+			"responseStatus":      rw.Status(),
+			"responseSize":        rw.Size(),
 			"millisecondsElapsed": elapsed,
-		}).Info("Request complete.")
-	}()
-
-	r.Handler.ServeHTTP(&interceptor, request)
-}
-
-func (w *LoggingResponseWriter) Header() http.Header {
-	return w.RealWriter.Header()
-}
-
-func (w *LoggingResponseWriter) Write(b []byte) (int, error) {
-	w.ResponseSize += len(b)
-	return w.RealWriter.Write(b)
-}
-
-func (w *LoggingResponseWriter) WriteHeader(status int) {
-	w.Status = status
-	w.RealWriter.WriteHeader(status)
+		}).Info("Request processing complete.")
+	}
 }

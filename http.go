@@ -22,6 +22,7 @@ var server *graceful.Server
 
 func startServer(config Config) {
 	m := martini.New()
+	m.Use(Log())
 	m.Use(gzip.All())
 	m.Use(martini.Recovery())
 	m.Use(method.Override())

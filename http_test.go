@@ -9,6 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 )
 
 const (
@@ -17,6 +18,10 @@ const (
 
 func urlFor(path string) string {
 	return "http://localhost" + TestingAddress + path
+}
+
+func haveJSONContentType() types.GomegaMatcher {
+	return HaveKeyWithValue("Content-Type", Or(Equal([]string{"application/json; charset=UTF-8"}), Equal([]string{"application/json; charset=utf-8"})))
 }
 
 var _ = Describe("HTTP endpoints", func() {
@@ -59,34 +64,64 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/agents", func() {
 		Context("POST", func() {
-			It("saves the agent to the database and returns the agent ID", func() {
-				resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
+			var db Database
 
+			BeforeEach(func() {
+				var err error
+				db, err = connectToDatabase(testDataSourceName)
 				Expect(err).To(BeNil())
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
-
-				responseBytes, err := ioutil.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
-
-				var response map[string]interface{}
-				err = json.Unmarshal(responseBytes, &response)
-
-				Expect(err).To(BeNil())
-				Expect(response).To(HaveKey("id"))
-
-				db, err := connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-				defer db.Close()
-
-				id := int(response["id"].(float64))
-				var name string
-				var created time.Time
-				err = db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &created)
-				Expect(err).To(BeNil())
-				Expect(name).To(Equal("New agent name"))
-				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
 			})
+
+			AfterEach(func() {
+				db.Close()
+			})
+
+			Context("when the agent is valid", func() {
+				It("saves the agent to the database and returns the agent ID", func() {
+					resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
+
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+					Expect(resp.Header).To(haveJSONContentType())
+
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).To(BeNil())
+
+					var response map[string]interface{}
+					err = json.Unmarshal(responseBytes, &response)
+
+					Expect(err).To(BeNil())
+					Expect(response).To(HaveKey("id"))
+
+					id := int(response["id"].(float64))
+					var name string
+					var created time.Time
+					err = db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &created)
+					Expect(err).To(BeNil())
+					Expect(name).To(Equal("New agent name"))
+					Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
+				})
+			})
+
+			Context("when the agent is invalid", func() {
+				It("does not save the agent to the database and returns a HTTP 422 response", func() {
+					var count int
+					err := db.DB().QueryRow("SELECT COUNT(*) FROM agents;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+
+					resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":""}`))
+
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(422))
+					Expect(resp.Header).To(haveJSONContentType())
+
+					err = db.DB().QueryRow("SELECT COUNT(*) FROM agents;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+				})
+			})
+
 		})
 
 		Context("GET", func() {
@@ -102,7 +137,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
+				Expect(resp.Header).To(haveJSONContentType())
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -138,7 +173,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
+				Expect(resp.Header).To(haveJSONContentType())
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -212,7 +247,7 @@ var _ = Describe("HTTP endpoints", func() {
 				resp, err := http.Get(urlFor("/v1/agents/1004/data?variable=1005&date_from=2015-04-07T15:00:30Z&date_to=2015-04-07T15:02:30Z"))
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
+				Expect(resp.Header).To(haveJSONContentType())
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())
@@ -232,7 +267,7 @@ var _ = Describe("HTTP endpoints", func() {
 
 				Expect(err).To(BeNil())
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json; charset=UTF-8"}))
+				Expect(resp.Header).To(haveJSONContentType())
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)
 				Expect(err).To(BeNil())

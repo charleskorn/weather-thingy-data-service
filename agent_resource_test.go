@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-martini/martini"
 	"github.com/golang/mock/gomock"
+	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -42,15 +42,23 @@ var _ = Describe("Agent resource", func() {
 			Expect(err).To(BeNil())
 			Expect(agent).To(Equal(expectedAgent))
 		})
+
+		Describe("validation", func() {
+			It("succeeds if all required properties are set", func() {
+				errors := TestValidation(Agent{Name: "Test Agent"})
+				Expect(errors).To(BeEmpty())
+			})
+
+			It("fails if name property is not set", func() {
+				errors := TestValidation(Agent{})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("name"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+		})
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(body string, render render.Render, db Database) {
-			request, _ := http.NewRequest("POST", "/blah", strings.NewReader(body))
-
-			postAgent(render, request, db)
-		}
-
 		var render *MockRender
 		var db *MockDatabase
 
@@ -59,52 +67,32 @@ var _ = Describe("Agent resource", func() {
 			db = NewMockDatabase(mockController)
 		})
 
-		Describe("when the request is valid", func() {
-			It("saves the agent to the database and returns the ID of the newly created agent", func() {
-				agentId := 1019
+		It("saves the agent to the database and returns the ID of the newly created agent", func() {
+			agentId := 1019
 
-				createCall := db.EXPECT().CreateAgent(gomock.Any()).Do(func(agent *Agent) error {
-					Expect(agent.Name).To(Equal("New agent name"))
-					Expect(agent.AgentID).To(Equal(0))
-					Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
+			createCall := db.EXPECT().CreateAgent(gomock.Any()).Do(func(agent *Agent) error {
+				Expect(agent.Name).To(Equal("New agent name"))
+				Expect(agent.AgentID).To(Equal(0))
+				Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
 
-					agent.AgentID = agentId
+				agent.AgentID = agentId
 
-					return nil
-				})
-
-				jsonCall := render.EXPECT().JSON(http.StatusCreated, gomock.Any()).Do(func(status int, value interface{}) {
-					Expect(value).To(HaveKeyWithValue("id", agentId))
-				})
-
-				gomock.InOrder(
-					db.EXPECT().BeginTransaction(),
-					createCall,
-					db.EXPECT().CommitTransaction(),
-					jsonCall,
-					db.EXPECT().RollbackUncommittedTransaction(),
-				)
-
-				makeRequest(`{"name":"New agent name"}`, render, db)
-			})
-		})
-
-		Describe("when the request is invalid", func() {
-			TheRequestFails := func(request string) {
-				It("returns HTTP 400 and does not save the agent to the database", func() {
-					render.EXPECT().Text(http.StatusBadRequest, gomock.Any())
-
-					makeRequest(request, render, db)
-				})
-			}
-
-			Describe("because there is no name field", func() {
-				TheRequestFails(`{}`)
+				return nil
 			})
 
-			Describe("because the name field is empty", func() {
-				TheRequestFails(`{"name":""}`)
+			jsonCall := render.EXPECT().JSON(http.StatusCreated, gomock.Any()).Do(func(status int, value interface{}) {
+				Expect(value).To(HaveKeyWithValue("id", agentId))
 			})
+
+			gomock.InOrder(
+				db.EXPECT().BeginTransaction(),
+				createCall,
+				db.EXPECT().CommitTransaction(),
+				jsonCall,
+				db.EXPECT().RollbackUncommittedTransaction(),
+			)
+
+			postAgent(render, Agent{Name: "New agent name"}, db)
 		})
 	})
 

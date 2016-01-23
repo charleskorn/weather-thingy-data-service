@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-martini/martini"
+	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/gzip"
 	"github.com/martini-contrib/method"
 	"github.com/martini-contrib/render"
@@ -30,7 +31,7 @@ func startServer(config Config) {
 	r.Group("/v1", func(g martini.Router) {
 		g.Get("/ping", getPing)
 		g.Get("/agents", withDatabaseConnection, getAllAgents)
-		g.Post("/agents", withDatabaseConnection, postAgent)
+		g.Post("/agents", withDatabaseConnection, binding.Bind(Agent{}), postAgent)
 		g.Get("/agents/:agent_id", withDatabaseConnection, getAgent)
 		g.Get("/agents/:agent_id/data", withDatabaseConnection, getData)
 		g.Post("/agents/:agent_id/data", withDatabaseConnection, postDataPoints)

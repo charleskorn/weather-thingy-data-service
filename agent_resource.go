@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	log "github.com/Sirupsen/logrus"
-	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -14,32 +12,11 @@ import (
 
 type Agent struct {
 	AgentID int       `json:"id"`
-	Name    string    `json:"name"`
+	Name    string    `json:"name" binding:"required"`
 	Created time.Time `json:"created"`
 }
 
-func postAgent(r render.Render, req *http.Request, db Database) {
-	body, err := ioutil.ReadAll(req.Body)
-
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
-		r.Error(http.StatusInternalServerError)
-		return
-	}
-
-	var agent Agent
-
-	if err := json.Unmarshal(body, &agent); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
-		r.Error(http.StatusBadRequest)
-		return
-	}
-
-	if agent.Name == "" {
-		r.Text(http.StatusBadRequest, "Must specify name.")
-		return
-	}
-
+func postAgent(r render.Render, agent Agent, db Database) {
 	agent.Created = time.Now()
 
 	if err := db.BeginTransaction(); err != nil {

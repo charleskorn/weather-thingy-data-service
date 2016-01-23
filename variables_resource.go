@@ -49,10 +49,24 @@ func postVariable(render render.Render, r *http.Request, db Database) {
 		return
 	}
 
+	if err := db.BeginTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		render.Error(http.StatusInternalServerError)
+		return
+	}
+
+	defer db.RollbackUncommittedTransaction()
+
 	variable.Created = time.Now()
 
 	if err := db.CreateVariable(&variable); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not create new variable.")
+		render.Error(http.StatusInternalServerError)
+		return
+	}
+
+	if err := db.CommitTransaction(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}

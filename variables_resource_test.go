@@ -67,7 +67,7 @@ var _ = Describe("Variables resource", func() {
 
 		Describe("when the request is valid", func() {
 			It("saves the variable to the database and returns HTTP 201 response", func() {
-				db.EXPECT().CreateVariable(gomock.Any()).Do(func(variable *Variable) error {
+				createVariableCall := db.EXPECT().CreateVariable(gomock.Any()).Do(func(variable *Variable) error {
 					Expect(variable.Name).To(Equal("New variable name"))
 					Expect(variable.Units).To(Equal("metres (m)"))
 					Expect(variable.VariableID).To(Equal(0))
@@ -79,7 +79,13 @@ var _ = Describe("Variables resource", func() {
 					return nil
 				})
 
-				render.EXPECT().JSON(http.StatusCreated, map[string]interface{}{"id": 1019})
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					createVariableCall,
+					db.EXPECT().CommitTransaction(),
+					render.EXPECT().JSON(http.StatusCreated, map[string]interface{}{"id": 1019}),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
 
 				makeRequest(`{"name":"New variable name","units":"metres (m)","displayDecimalPlaces":2}`, render, db)
 			})
@@ -87,12 +93,10 @@ var _ = Describe("Variables resource", func() {
 
 		Describe("when the request is invalid", func() {
 			TheRequestFails := func(request string) {
-				BeforeEach(func() {
-					makeRequest(request, render, db)
-				})
-
 				It("returns HTTP 400 response", func() {
-					render.EXPECT().Error(http.StatusBadRequest)
+					render.EXPECT().Text(http.StatusBadRequest, gomock.Any())
+
+					makeRequest(request, render, db)
 				})
 			}
 

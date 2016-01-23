@@ -1,7 +1,7 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	"net/http"
@@ -16,9 +16,9 @@ type Variable struct {
 	Created              time.Time `json:"created"`
 }
 
-func postVariable(render render.Render, variable Variable, db Database) {
+func postVariable(render render.Render, variable Variable, db Database, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		log.WithError(err).Error("Could not begin database transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}
@@ -28,13 +28,13 @@ func postVariable(render render.Render, variable Variable, db Database) {
 	variable.Created = time.Now()
 
 	if err := db.CreateVariable(&variable); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not create new variable.")
+		log.WithError(err).Error("Could not create new variable.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}
 
 	if err := db.CommitTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		log.WithError(err).Error("Could not commit transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}

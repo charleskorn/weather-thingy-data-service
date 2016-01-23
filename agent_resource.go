@@ -1,10 +1,10 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
 	"strconv"
@@ -16,11 +16,11 @@ type Agent struct {
 	Created time.Time `json:"created"`
 }
 
-func postAgent(r render.Render, agent Agent, db Database) {
+func postAgent(r render.Render, agent Agent, db Database, log *logrus.Entry) {
 	agent.Created = time.Now()
 
 	if err := db.BeginTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		log.WithError(err).Error("Could not begin database transaction.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
@@ -28,13 +28,13 @@ func postAgent(r render.Render, agent Agent, db Database) {
 	defer db.RollbackUncommittedTransaction()
 
 	if err := db.CreateAgent(&agent); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not create new agent.")
+		log.WithError(err).Error("Could not create new agent.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
 
 	if err := db.CommitTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		log.WithError(err).Error("Could not commit transaction.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
@@ -42,11 +42,11 @@ func postAgent(r render.Render, agent Agent, db Database) {
 	r.JSON(http.StatusCreated, map[string]interface{}{"id": agent.AgentID})
 }
 
-func getAllAgents(r render.Render, db Database) {
+func getAllAgents(r render.Render, db Database, log *logrus.Entry) {
 	agents, err := db.GetAllAgents()
 
 	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not get all agents.")
+		log.WithError(err).Error("Could not get all agents.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
@@ -54,16 +54,16 @@ func getAllAgents(r render.Render, db Database) {
 	r.JSON(http.StatusOK, agents)
 }
 
-func getAgent(r render.Render, params martini.Params, db Database) {
+func getAgent(r render.Render, params martini.Params, db Database, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		log.WithError(err).Error("Could not begin database transaction.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
 
 	defer db.RollbackUncommittedTransaction()
 
-	agentID, ok := extractAgentID(params, r, db)
+	agentID, ok := extractAgentID(params, r, db, log)
 
 	if !ok {
 		return
@@ -77,19 +77,19 @@ func getAgent(r render.Render, params martini.Params, db Database) {
 	var err error
 
 	if agent.Agent, err = db.GetAgentByID(agentID); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not agent info.")
+		log.WithError(err).Error("Could not agent info.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
 
 	if agent.Variables, err = db.GetVariablesForAgent(agentID); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not get variables for agent.")
+		log.WithError(err).Error("Could not get variables for agent.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
 
 	if err := db.CommitTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		log.WithError(err).Error("Could not commit transaction.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}
@@ -97,7 +97,7 @@ func getAgent(r render.Render, params martini.Params, db Database) {
 	r.JSON(http.StatusOK, agent)
 }
 
-func extractAgentID(params martini.Params, r render.Render, db Database) (int, bool) {
+func extractAgentID(params martini.Params, r render.Render, db Database, log *logrus.Entry) (int, bool) {
 	rawAgentID := params["agent_id"]
 	agentID, err := strconv.Atoi(rawAgentID)
 
@@ -107,7 +107,7 @@ func extractAgentID(params martini.Params, r render.Render, db Database) (int, b
 	}
 
 	if exists, err := db.CheckAgentIDExists(agentID); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not check if agent exists.")
+		log.WithError(err).Error("Could not check if agent exists.")
 		r.Error(http.StatusInternalServerError)
 		return 0, false
 	} else if !exists {

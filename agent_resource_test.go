@@ -92,7 +92,7 @@ var _ = Describe("Agent resource", func() {
 				db.EXPECT().RollbackUncommittedTransaction(),
 			)
 
-			postAgent(render, Agent{Name: "New agent name"}, db)
+			postAgent(render, Agent{Name: "New agent name"}, db, nil)
 		})
 	})
 
@@ -113,7 +113,7 @@ var _ = Describe("Agent resource", func() {
 			db.EXPECT().GetAllAgents().Return(agents, nil)
 			render.EXPECT().JSON(http.StatusOK, agents)
 
-			getAllAgents(render, db)
+			getAllAgents(render, db, nil)
 		})
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Agent resource", func() {
 				"agent_id": agentID,
 			}
 
-			getAgent(render, params, db)
+			getAgent(render, params, db, nil)
 		}
 
 		var db *MockDatabase

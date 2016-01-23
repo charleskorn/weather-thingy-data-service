@@ -1,7 +1,7 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"net"
 	"net/http"
 	"time"
@@ -56,16 +56,16 @@ func startServer(config Config) {
 
 	if err := server.ListenAndServe(); err != nil {
 		if opErr, ok := err.(*net.OpError); !ok || (ok && opErr.Op != "accept") {
-			log.WithFields(log.Fields{"error": err}).Error("Error occurred while listening for requests.")
+			logrus.WithError(err).Error("Error occurred while listening for requests.")
 		}
 	}
 }
 
-func withDatabaseConnection(config Config, context martini.Context, r render.Render) {
+func withDatabaseConnection(config Config, context martini.Context, r render.Render, log *logrus.Entry) {
 	db, err := connectToDatabase(config.DataSourceName)
 
 	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not connect to database.")
+		log.WithError(err).Error("Could not connect to database.")
 		r.Error(http.StatusInternalServerError)
 		return
 	}

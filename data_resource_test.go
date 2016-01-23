@@ -127,7 +127,7 @@ var _ = Describe("Data resource", func() {
 		var makeRequest = func(data PostDataPoints, agentID string, render render.Render, db Database) {
 			params := martini.Params{"agent_id": agentID}
 
-			postDataPoints(render, data, params, db)
+			postDataPoints(render, data, params, db, nil)
 		}
 
 		var db *MockDatabase
@@ -231,7 +231,7 @@ var _ = Describe("Data resource", func() {
 			request, _ := http.NewRequest("GET", "/blah?"+query, strings.NewReader(""))
 			params := martini.Params{"agent_id": agentID}
 
-			getData(render, request, params, db)
+			getData(render, request, params, db, nil)
 		}
 
 		var db *MockDatabase

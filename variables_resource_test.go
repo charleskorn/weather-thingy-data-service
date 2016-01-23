@@ -115,7 +115,7 @@ var _ = Describe("Variables resource", func() {
 			)
 
 			variable := Variable{Name: "New variable name", Units: "metres (m)", DisplayDecimalPlaces: 2}
-			postVariable(render, variable, db)
+			postVariable(render, variable, db, nil)
 		})
 	})
 })

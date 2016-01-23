@@ -1,7 +1,7 @@
 package main
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"github.com/go-martini/martini"
 	"github.com/twinj/uuid"
 	"net/http"
@@ -12,7 +12,7 @@ func Log() martini.Handler {
 	return func(res http.ResponseWriter, req *http.Request, c martini.Context) {
 		requestId := uuid.NewV4().String()
 
-		logger := log.WithFields(log.Fields{
+		logger := logrus.WithFields(logrus.Fields{
 			"method":        req.Method,
 			"url":           req.URL.String(),
 			"remoteAddress": req.RemoteAddr,
@@ -24,11 +24,13 @@ func Log() martini.Handler {
 		start := time.Now()
 
 		rw := res.(martini.ResponseWriter)
+
+		c.Map(logger)
 		c.Next()
 
 		elapsed := time.Since(start).Seconds() * 1000
 
-		logger.WithFields(log.Fields{
+		logger.WithFields(logrus.Fields{
 			"responseStatus":      rw.Status(),
 			"responseSize":        rw.Size(),
 			"millisecondsElapsed": elapsed,

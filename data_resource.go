@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,16 +41,16 @@ type GetDataResultVariable struct {
 	Points               map[string]float64 `json:"points"`
 }
 
-func postDataPoints(render render.Render, data PostDataPoints, params martini.Params, db Database) {
+func postDataPoints(render render.Render, data PostDataPoints, params martini.Params, db Database, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		log.WithError(err).Error("Could not begin database transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}
 
 	defer db.RollbackUncommittedTransaction()
 
-	agentID, ok := extractAgentID(params, render, db)
+	agentID, ok := extractAgentID(params, render, db, log)
 
 	if !ok {
 		return
@@ -70,14 +70,14 @@ func postDataPoints(render render.Render, data PostDataPoints, params martini.Pa
 		}
 
 		if err := db.AddDataPoint(DataPoint{AgentID: agentID, VariableID: variableID, Value: point.Value, Time: data.Time}); err != nil {
-			log.WithFields(log.Fields{"error": err}).Error("Could not save data.")
+			log.WithError(err).Error("Could not save data.")
 			render.Error(http.StatusInternalServerError)
 			return
 		}
 	}
 
 	if err := db.CommitTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		log.WithError(err).Error("Could not commit transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}
@@ -108,16 +108,16 @@ func (data PostDataPoints) Validate(errors binding.Errors, _ *http.Request) bind
 	return errors
 }
 
-func getData(render render.Render, req *http.Request, params martini.Params, db Database) {
+func getData(render render.Render, req *http.Request, params martini.Params, db Database, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
+		log.WithError(err).Error("Could not begin database transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}
 
 	defer db.RollbackUncommittedTransaction()
 
-	agentID, ok := extractAgentID(params, render, db)
+	agentID, ok := extractAgentID(params, render, db, log)
 
 	if !ok {
 		return
@@ -135,7 +135,7 @@ func getData(render render.Render, req *http.Request, params martini.Params, db 
 		variable, err := db.GetVariableByID(variableID)
 
 		if err != nil {
-			log.WithFields(log.Fields{"error": err}).Error("Could not get variable info.")
+			log.WithError(err).Error("Could not get variable info.")
 			render.Error(http.StatusInternalServerError)
 			return
 		}
@@ -144,7 +144,7 @@ func getData(render render.Render, req *http.Request, params martini.Params, db 
 		variableResult.Points, err = db.GetData(agentID, variableID, fromTime, toTime)
 
 		if err != nil {
-			log.WithFields(log.Fields{"error": err}).Error("Could not retrieve data.")
+			log.WithError(err).Error("Could not retrieve data.")
 			render.Error(http.StatusInternalServerError)
 			return
 		}
@@ -153,7 +153,7 @@ func getData(render render.Render, req *http.Request, params martini.Params, db 
 	}
 
 	if err := db.CommitTransaction(); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not commit transaction.")
+		log.WithError(err).Error("Could not commit transaction.")
 		render.Error(http.StatusInternalServerError)
 		return
 	}

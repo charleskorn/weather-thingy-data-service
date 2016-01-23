@@ -30,12 +30,15 @@ func startServer(config Config) {
 	r := martini.NewRouter()
 	r.Group("/v1", func(g martini.Router) {
 		g.Get("/ping", getPing)
-		g.Get("/agents", withDatabaseConnection, getAllAgents)
-		g.Post("/agents", withDatabaseConnection, binding.Bind(Agent{}), postAgent)
-		g.Get("/agents/:agent_id", withDatabaseConnection, getAgent)
-		g.Get("/agents/:agent_id/data", withDatabaseConnection, getData)
-		g.Post("/agents/:agent_id/data", withDatabaseConnection, binding.Bind(PostDataPoints{}), postDataPoints)
-		g.Post("/variables", withDatabaseConnection, binding.Bind(Variable{}), postVariable)
+
+		r.Group("", func(g martini.Router) {
+			g.Get("/agents", getAllAgents)
+			g.Post("/agents", binding.Bind(Agent{}), postAgent)
+			g.Get("/agents/:agent_id", getAgent)
+			g.Get("/agents/:agent_id/data", getData)
+			g.Post("/agents/:agent_id/data", binding.Bind(PostDataPoints{}), postDataPoints)
+			g.Post("/variables", binding.Bind(Variable{}), postVariable)
+		}, withDatabaseConnection)
 	})
 
 	m.MapTo(r, (*martini.Routes)(nil))

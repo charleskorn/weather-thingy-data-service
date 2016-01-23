@@ -39,7 +39,7 @@ func runMigrations(config Config) {
 	} else if n == 0 {
 		log.Info("Database is already up to date, no migrations applied.")
 	} else {
-		log.WithFields(log.Fields{"migrationCount": n}).Info("Applied one or more migrations.", n)
+		log.WithFields(log.Fields{"migrationCount": n}).Info("Applied one or more migrations.")
 	}
 }
 

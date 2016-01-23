@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/binding"
-	"github.com/martini-contrib/gzip"
 	"github.com/martini-contrib/method"
 	"github.com/martini-contrib/render"
 	"github.com/martini-contrib/strict"
@@ -19,11 +18,9 @@ const ShutdownTimeout = 2 * time.Second
 
 var server *graceful.Server
 
-
 func startServer(config Config) {
 	m := martini.New()
 	m.Use(Log())
-	m.Use(gzip.All())
 	m.Use(martini.Recovery())
 	m.Use(method.Override())
 	m.Use(render.Renderer())

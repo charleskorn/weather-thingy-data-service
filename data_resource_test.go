@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-martini/martini"
 	"github.com/golang/mock/gomock"
+	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -46,6 +47,51 @@ var _ = Describe("Data resource", func() {
 			Expect(err).To(BeNil())
 			Expect(postData).To(Equal(expectedPostData))
 		})
+
+		Describe("validation", func() {
+			It("succeeds if all required properties are set", func() {
+				errors := TestValidation(PostDataPoints{
+					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+					Data: []PostDataPoint{
+						{Variable: "temperature", Value: 10.5},
+					},
+				})
+				Expect(errors).To(BeEmpty())
+			})
+
+			It("fails if time property is not set", func() {
+				errors := TestValidation(PostDataPoints{
+					Data: []PostDataPoint{
+						{Variable: "temperature", Value: 10.5},
+					},
+				})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("time"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+
+			It("fails if no data is provided", func() {
+				errors := TestValidation(PostDataPoints{
+					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+					Data: []PostDataPoint{},
+				})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("data"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+
+			It("fails if no variable name is provided for a data point", func() {
+				errors := TestValidation(PostDataPoints{
+					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+					Data: []PostDataPoint{
+						{Value: 10.5},
+					},
+				})
+				Expect(errors).ToNot(BeEmpty())
+				Expect(errors[0].FieldNames).To(ContainElement("variable"))
+				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			})
+		})
 	})
 
 	Describe("GET data structure", func() {
@@ -78,16 +124,21 @@ var _ = Describe("Data resource", func() {
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(body string, agentID string, render render.Render, db Database) {
-			request, _ := http.NewRequest("POST", "/blah", strings.NewReader(body))
+		var makeRequest = func(data PostDataPoints, agentID string, render render.Render, db Database) {
 			params := martini.Params{"agent_id": agentID}
 
-			postDataPoints(render, request, params, db)
+			postDataPoints(render, data, params, db)
 		}
 
 		var db *MockDatabase
 		var render *MockRender
 		existentAgentID := "10"
+		validData := PostDataPoints{
+			Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+			Data: []PostDataPoint{
+				{Variable: "temperature", Value: 10.5},
+			},
+		}
 
 		BeforeEach(func() {
 			db = NewMockDatabase(mockController)
@@ -113,79 +164,64 @@ var _ = Describe("Data resource", func() {
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 
-				makeRequest(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"temperature","value":10.5}]}`, existentAgentID, render, db)
+				makeRequest(validData, existentAgentID, render, db)
 			})
 		})
 
 		Describe("when the request is invalid", func() {
-			TheRequestFailsWithCode := func(request string, agentID string, responseCode int) {
+			TheRequestFailsWithCode := func(data PostDataPoints, agentID string, responseCode int) {
 				It(fmt.Sprintf("does not save the variable to the database and returns HTTP %v response", responseCode), func() {
 					render.EXPECT().Text(responseCode, gomock.Any())
 
-					makeRequest(request, agentID, render, db)
+					makeRequest(data, agentID, render, db)
 				})
 			}
 
-			TheRequestFails := func(request string, agentID string) {
-				TheRequestFailsWithCode(request, agentID, http.StatusBadRequest)
+			TheRequestFails := func(data PostDataPoints, agentID string) {
+				TheRequestFailsWithCode(data, agentID, http.StatusBadRequest)
 			}
 
-			BeforeEach(func() {
-				gomock.InOrder(
-					db.EXPECT().BeginTransaction(),
-					db.EXPECT().CheckAgentIDExists(909090).Return(false, nil).AnyTimes(),
-					db.EXPECT().CheckAgentIDExists(10).Return(true, nil).AnyTimes(),
-					db.EXPECT().GetVariableIDForName("nothing").Return(-1, errors.New("Doesn't exisit")).AnyTimes(),
-					db.EXPECT().RollbackUncommittedTransaction(),
-				)
-			})
-
-			Describe("because there are no fields", func() {
-				TheRequestFails(`{}`, existentAgentID)
-			})
-
-			Describe("because the time field is empty", func() {
-				TheRequestFails(`{"time":"","data":[{"variable":"temperature","value":10}]}`, existentAgentID)
-			})
-
-			Describe("because the time field is missing", func() {
-				TheRequestFails(`{"data":[{"variable":"temperature","value":10}]}`, existentAgentID)
-			})
-
-			Describe("because the time field is in an invalid format", func() {
-				TheRequestFails(`{"time":"blah","data":[{"variable":"temperature","value":10}]}`, existentAgentID)
-			})
-
-			Describe("because the data field is empty", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[]}`, existentAgentID)
-			})
-
-			Describe("because the variable field is empty", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"variable":"","value":10}]}`, existentAgentID)
-			})
-
-			Describe("because the variable field is missing", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, existentAgentID)
-			})
-
-			Describe("because the value field is empty", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":""}]}`, existentAgentID)
-			})
-
-			Describe("because the value field is not a number", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":"abc"}]}`, existentAgentID)
-			})
-
 			Describe("because the agent ID is not an integer", func() {
-				TheRequestFailsWithCode(`{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":10}]}`, "abc", http.StatusNotFound)
+				BeforeEach(func() {
+					gomock.InOrder(
+						db.EXPECT().BeginTransaction(),
+						db.EXPECT().RollbackUncommittedTransaction(),
+					)
+				})
+
+				TheRequestFailsWithCode(validData, "abc", http.StatusNotFound)
 			})
 
 			Describe("because the agent ID does not match any known agent", func() {
-				TheRequestFailsWithCode(`{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":10}]}`, "909090", http.StatusNotFound)
+				BeforeEach(func() {
+					gomock.InOrder(
+						db.EXPECT().BeginTransaction(),
+						db.EXPECT().CheckAgentIDExists(909090).Return(false, nil),
+						db.EXPECT().RollbackUncommittedTransaction(),
+					)
+				})
+
+				TheRequestFailsWithCode(validData, "909090", http.StatusNotFound)
 			})
 
 			Describe("because the variable name does not match any known variable", func() {
-				TheRequestFails(`{"time":"2015-01-02T03:04:05Z","data":[{"variable":"nothing","value":10}]}`, existentAgentID)
+				BeforeEach(func() {
+					gomock.InOrder(
+						db.EXPECT().BeginTransaction(),
+						db.EXPECT().CheckAgentIDExists(10).Return(true, nil),
+						db.EXPECT().GetVariableIDForName("nothing").Return(-1, errors.New("Doesn't exisit")),
+						db.EXPECT().RollbackUncommittedTransaction(),
+					)
+				})
+
+				data := PostDataPoints{
+					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+					Data: []PostDataPoint{
+						{Variable: "nothing", Value: 10.5},
+					},
+				}
+
+				TheRequestFails(data, existentAgentID)
 			})
 		})
 	})

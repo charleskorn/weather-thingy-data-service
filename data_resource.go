@@ -1,15 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/go-martini/martini"
+	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 )
 
@@ -21,12 +20,12 @@ type DataPoint struct {
 }
 
 type PostDataPoints struct {
-	Time time.Time
+	Time time.Time `json:"time" binding:"required"`
 	Data []PostDataPoint
 }
 
 type PostDataPoint struct {
-	Variable string
+	Variable string `json:"variable" binding:"required"`
 	Value    float64
 }
 
@@ -42,7 +41,7 @@ type GetDataResultVariable struct {
 	Points               map[string]float64 `json:"points"`
 }
 
-func postDataPoints(render render.Render, req *http.Request, params martini.Params, db Database) {
+func postDataPoints(render render.Render, data PostDataPoints, params martini.Params, db Database) {
 	if err := db.BeginTransaction(); err != nil {
 		log.WithFields(log.Fields{"error": err}).Error("Could not begin database transaction.")
 		render.Error(http.StatusInternalServerError)
@@ -54,26 +53,6 @@ func postDataPoints(render render.Render, req *http.Request, params martini.Para
 	agentID, ok := extractAgentID(params, render, db)
 
 	if !ok {
-		return
-	}
-
-	body, err := ioutil.ReadAll(req.Body)
-
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not read request.")
-		render.Error(http.StatusInternalServerError)
-		return
-	}
-
-	var data PostDataPoints
-
-	if err := json.Unmarshal(body, &data); err != nil {
-		log.WithFields(log.Fields{"error": err}).Error("Could not unmarshal request.")
-		render.Text(http.StatusBadRequest, "Could not parse request.")
-		return
-	}
-
-	if !validatePostRequest(data, render) {
 		return
 	}
 
@@ -106,25 +85,27 @@ func postDataPoints(render render.Render, req *http.Request, params martini.Para
 	render.Status(http.StatusCreated)
 }
 
-func validatePostRequest(data PostDataPoints, render render.Render) bool {
-	if data.Time.Equal(time.Time{}) {
-		render.Text(http.StatusBadRequest, "Must specify time value.")
-		return false
-	}
-
+func (data PostDataPoints) Validate(errors binding.Errors, _ *http.Request) binding.Errors {
 	if len(data.Data) == 0 {
-		render.Text(http.StatusBadRequest, "Must include at least one data point.")
-		return false
+		errors = append(errors, binding.Error{
+			FieldNames:     []string{"data"},
+			Classification: binding.RequiredError,
+			Message:        "Must include at least one data point.",
+		})
 	}
 
+	// HACK: Until https://github.com/martini-contrib/binding/issues/40 is fixed, we have to validate that the variable name is present ourselves.
 	for _, point := range data.Data {
 		if point.Variable == "" {
-			render.Text(http.StatusBadRequest, "Must include variable name.")
-			return false
+			errors = append(errors, binding.Error{
+				FieldNames:     []string{"variable"},
+				Classification: binding.RequiredError,
+				Message:        "Must provide a variable name for each data point.",
+			})
 		}
 	}
 
-	return true
+	return errors
 }
 
 func getData(render render.Render, req *http.Request, params martini.Params, db Database) {

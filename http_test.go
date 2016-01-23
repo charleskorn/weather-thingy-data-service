@@ -27,20 +27,23 @@ func haveJSONContentType() types.GomegaMatcher {
 
 var _ = Describe("HTTP endpoints", func() {
 	var testDataSourceName string
+	var db Database
 
 	BeforeEach(func() {
 		testDataSourceName = getTestDataSourceName()
 		removeTestDatabase(testDataSourceName, true)
-		db, err := connectToDatabase(testDataSourceName)
+
+		var err error
+		db, err = connectToDatabase(testDataSourceName)
 		Expect(err).To(BeNil())
 		_, err = db.RunMigrations()
 		Expect(err).To(BeNil())
-		db.Close()
 
 		go startServer(Config{ServerAddress: TestingAddress, DataSourceName: testDataSourceName})
 	})
 
 	AfterEach(func() {
+		db.Close()
 		stopServer()
 		removeTestDatabase(testDataSourceName, false)
 	})
@@ -65,18 +68,6 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/agents", func() {
 		Context("POST", func() {
-			var db Database
-
-			BeforeEach(func() {
-				var err error
-				db, err = connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-			})
-
-			AfterEach(func() {
-				db.Close()
-			})
-
 			Context("when the agent is valid", func() {
 				It("saves the agent to the database and returns the agent ID", func() {
 					resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
@@ -127,10 +118,6 @@ var _ = Describe("HTTP endpoints", func() {
 
 		Context("GET", func() {
 			It("returns all agents", func() {
-				db, err := connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-				defer db.Close()
-
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');"))
 
@@ -161,10 +148,6 @@ var _ = Describe("HTTP endpoints", func() {
 	Describe("/v1/agents/:agent_id", func() {
 		Context("GET", func() {
 			It("returns all details of the agent", func() {
-				db, err := connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-				defer db.Close()
-
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1001, "First agent", "2015-04-05T03:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 1, "2015-04-07T15:00:00Z"))
@@ -204,40 +187,64 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/agents/:agent_id/data", func() {
 		Context("POST", func() {
-			It("saves the data to the database", func() {
-				db, err := connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-				defer db.Close()
-
+			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES (1005, 'distance', 'metres', 1);"))
+			})
 
-				resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
-				Expect(err).To(BeNil())
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			Context("when the data is valid", func() {
+				It("saves the data to the database", func() {
+					resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
-				responseBytes, err := ioutil.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
-				Expect(string(responseBytes)).To(Equal(""))
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).To(BeNil())
+					Expect(string(responseBytes)).To(Equal(""))
 
-				var agentID, variableID int
-				var value float64
-				var actualTime time.Time
-				err = db.DB().QueryRow("SELECT agent_id, variable_id, value, time FROM data;").Scan(&agentID, &variableID, &value, &actualTime)
-				Expect(err).To(BeNil())
-				Expect(agentID).To(Equal(1004))
-				Expect(variableID).To(Equal(1005))
-				Expect(value).To(Equal(10.5))
-				Expect(actualTime).To(BeTemporally("==", time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC)))
+					var agentID, variableID int
+					var value float64
+					var actualTime time.Time
+					err = db.DB().QueryRow("SELECT agent_id, variable_id, value, time FROM data;").Scan(&agentID, &variableID, &value, &actualTime)
+					Expect(err).To(BeNil())
+					Expect(agentID).To(Equal(1004))
+					Expect(variableID).To(Equal(1005))
+					Expect(value).To(Equal(10.5))
+					Expect(actualTime).To(BeTemporally("==", time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC)))
+				})
+			})
+
+			Context("when the data is invalid", func() {
+				DescribeTable("it does not save the data to the database and returns a HTTP 4xx response", func(body string, status int) {
+					var count int
+					err := db.DB().QueryRow("SELECT COUNT(*) FROM data;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+
+					resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(body))
+
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(status))
+					Expect(resp.Header).To(haveJSONContentType())
+
+					err = db.DB().QueryRow("SELECT COUNT(*) FROM data;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+				},
+					Entry("because there are no fields", `{}`, 422),
+					Entry("because the time field is empty", `{"time":"","data":[{"variable":"temperature","value":10}]}`, http.StatusBadRequest),
+					Entry("because the time field is missing", `{"data":[{"variable":"temperature","value":10}]}`, 422),
+					Entry("because the data field is empty", `{"time":"2015-01-02T03:04:05Z","data":[]}`, 422),
+					Entry("because the variable field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"","value":10}]}`, 422),
+					Entry("because the variable field is missing", `{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, 422),
+					Entry("because the value field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":""}]}`, http.StatusBadRequest),
+					Entry("because the time field is in an invalid format", `{"time":"blah","data":[{"variable":"temperature","value":10}]}`, http.StatusBadRequest),
+					Entry("because the value field is not a number", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":"abc"}]}`, http.StatusBadRequest))
 			})
 		})
 
 		Context("GET", func() {
 			It("retrieves the data from the database", func() {
-				db, err := connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-				defer db.Close()
-
 				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES (1005, 'distance', 'metres', 1);"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 103, "2015-04-07T15:00:00Z"))
@@ -263,18 +270,6 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/variables", func() {
 		Context("POST", func() {
-			var db Database
-
-			BeforeEach(func() {
-				var err error
-				db, err = connectToDatabase(testDataSourceName)
-				Expect(err).To(BeNil())
-			})
-
-			AfterEach(func() {
-				db.Close()
-			})
-
 			Context("when the variable is valid", func() {
 				It("saves the variable to the database and returns the variable ID", func() {
 					resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))

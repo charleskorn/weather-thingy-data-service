@@ -200,7 +200,7 @@ var _ = Describe("PostgresDatabase", func() {
 		Describe("CreateAgent", func() {
 			It("saves new agents to the database", func() {
 				created := time.Now().Round(time.Millisecond)
-				agent := &Agent{Name: "Test agent", Created: created}
+				agent := &Agent{Name: "Test agent", OwnerUserID: 3001, Created: created}
 
 				Expect(db.BeginTransaction()).To(BeNil())
 				err := db.CreateAgent(agent)
@@ -211,12 +211,14 @@ var _ = Describe("PostgresDatabase", func() {
 
 				var actualName string
 				var actualCreated time.Time
-				row := db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1", agent.AgentID)
-				err = row.Scan(&actualName, &actualCreated)
+				var actualOwnerUserId int
+				row := db.DB().QueryRow("SELECT name, owner_user_id, created FROM agents WHERE agent_id = $1", agent.AgentID)
+				err = row.Scan(&actualName, &actualOwnerUserId, &actualCreated)
 
 				Expect(err).To(BeNil())
 				Expect(actualName).To(Equal("Test agent"))
 				Expect(actualCreated).To(BeTemporally("==", created))
+				Expect(actualOwnerUserId).To(Equal(3001))
 			})
 		})
 
@@ -412,7 +414,7 @@ var _ = Describe("PostgresDatabase", func() {
 
 		Describe("GetAgentByID", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+0:00');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES (1, 'Test Agent 1', 3001, '2015-03-30 12:00:00+0:00');"))
 
 				err := db.BeginTransaction()
 				Expect(err).To(BeNil())
@@ -427,6 +429,7 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(err).To(BeNil())
 				Expect(agent.AgentID).To(Equal(1))
 				Expect(agent.Name).To(Equal("Test Agent 1"))
+				Expect(agent.OwnerUserID).To(Equal(3001))
 				Expect(agent.Created).To(BeTemporally("==", time.Date(2015, 3, 30, 12, 0, 0, 0, time.UTC)))
 			})
 
@@ -434,6 +437,45 @@ var _ = Describe("PostgresDatabase", func() {
 				agent, err := db.GetAgentByID(2)
 				Expect(err).ToNot(BeNil())
 				Expect(agent).To(Equal(Agent{}))
+			})
+		})
+
+		Describe("CreateUser", func() {
+			It("saves new users to the database", func() {
+				created := time.Now().Round(time.Millisecond)
+				user := &User{
+					UserID:             0,
+					Email:              "test@example.com",
+					PasswordIterations: 1000,
+					PasswordSalt:       []byte("salty"),
+					PasswordHash:       []byte("pass"),
+					IsAdmin:            true,
+					Created:            created,
+				}
+
+				Expect(db.BeginTransaction()).To(BeNil())
+				err := db.CreateUser(user)
+				Expect(err).To(BeNil())
+				Expect(user.UserID).ToNot(Equal(0))
+
+				Expect(db.CommitTransaction()).To(BeNil())
+
+				var actualEmail string
+				var actualPasswordIterations int
+				var actualPasswordSalt []byte
+				var actualPasswordHash []byte
+				var actualIsAdmin bool
+				var actualCreated time.Time
+				row := db.DB().QueryRow("SELECT email, password_iterations, password_salt, password_hash, is_admin, created FROM users WHERE user_id = $1", user.UserID)
+				err = row.Scan(&actualEmail, &actualPasswordIterations, &actualPasswordSalt, &actualPasswordHash, &actualIsAdmin, &actualCreated)
+
+				Expect(err).To(BeNil())
+				Expect(actualEmail).To(Equal("test@example.com"))
+				Expect(actualPasswordIterations).To(Equal(1000))
+				Expect(actualPasswordSalt).To(Equal([]byte("salty")))
+				Expect(actualPasswordHash).To(Equal([]byte("pass")))
+				Expect(actualIsAdmin).To(Equal(true))
+				Expect(actualCreated).To(BeTemporally("==", created))
 			})
 		})
 	})
@@ -502,8 +544,9 @@ func ExpectSucceeded(_ sql.Result, err error) {
 }
 
 func CreateTestData(db Database) {
-	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1001, "First agent", "2015-03-30 12:00:00+10:00"))
-	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1002, "Second agent", "2015-02-17 08:00:00+12:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin, created) VALUES ($1, $2, $3, $4, $5, $6, $7)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false, "2015-03-30 11:58:00+10:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1001, "First agent", 3001, "2015-03-30 12:00:00+10:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1002, "Second agent", 3001, "2015-02-17 08:00:00+12:00"))
 	ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 2, "2015-04-07T15:00:00Z"))
 	ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 2, "2015-04-07T15:00:00Z"))
 	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))

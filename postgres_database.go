@@ -102,7 +102,12 @@ func (d *PostgresDatabase) CreateAgent(agent *Agent) error {
 		return err
 	}
 
-	row := d.CurrentTransaction.QueryRow("INSERT INTO agents (name, created) VALUES ($1, $2) RETURNING agent_id", agent.Name, agent.Created)
+	row := d.CurrentTransaction.QueryRow(
+		"INSERT INTO agents (name, owner_user_id, created) VALUES ($1, $2, $3) RETURNING agent_id",
+		agent.Name,
+		agent.OwnerUserID,
+		agent.Created)
+
 	return row.Scan(&agent.AgentID)
 }
 
@@ -276,13 +281,31 @@ func (d *PostgresDatabase) GetAgentByID(agentID int) (Agent, error) {
 	}
 
 	agent := Agent{}
-	row := d.CurrentTransaction.QueryRow("SELECT agent_id, name, created FROM agents WHERE agent_id = $1;", agentID)
+	row := d.CurrentTransaction.QueryRow("SELECT agent_id, name, owner_user_id, created FROM agents WHERE agent_id = $1;", agentID)
 
-	if err := row.Scan(&agent.AgentID, &agent.Name, &agent.Created); err != nil {
+	if err := row.Scan(&agent.AgentID, &agent.Name, &agent.OwnerUserID, &agent.Created); err != nil {
 		return Agent{}, err
 	}
 
 	return agent, nil
+}
+
+func (d *PostgresDatabase) CreateUser(user *User) error {
+	if err := d.ensureTransaction(); err != nil {
+		return err
+	}
+
+	row := d.CurrentTransaction.QueryRow(
+		"INSERT INTO users (email, password_iterations, password_salt, password_hash, is_admin, created) VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id",
+		user.Email,
+		user.PasswordIterations,
+		user.PasswordSalt,
+		user.PasswordHash,
+		user.IsAdmin,
+		user.Created,
+	)
+
+	return row.Scan(&user.UserID)
 }
 
 func (d *PostgresDatabase) ensureTransaction() error {

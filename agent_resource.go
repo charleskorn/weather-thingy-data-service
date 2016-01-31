@@ -11,13 +11,15 @@ import (
 )
 
 type Agent struct {
-	AgentID int       `json:"id"`
-	Name    string    `json:"name" binding:"required"`
-	Created time.Time `json:"created"`
+	AgentID     int       `json:"id"`
+	OwnerUserID int       `json:"ownerUserId"`
+	Name        string    `json:"name" binding:"required"`
+	Created     time.Time `json:"created"`
 }
 
 func postAgent(r render.Render, agent Agent, db Database, log *logrus.Entry) {
 	agent.Created = time.Now()
+	agent.OwnerUserID = -1
 
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")

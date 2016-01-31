@@ -26,19 +26,19 @@ var _ = Describe("Agent resource", func() {
 
 	Describe("data structure", func() {
 		It("can be serialised to JSON", func() {
-			agent := Agent{AgentID: 1039, Name: "Cool agent", Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
+			agent := Agent{AgentID: 1039, Name: "Cool agent", OwnerUserID: 2456, Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
 
 			bytes, err := json.Marshal(agent)
 			Expect(err).To(BeNil())
-			Expect(string(bytes)).To(MatchJSON(`{"id":1039,"name":"Cool agent","created":"2015-03-26T14:35:00Z"}`))
+			Expect(string(bytes)).To(MatchJSON(`{"id":1039,"name":"Cool agent","ownerUserId":2456,"created":"2015-03-26T14:35:00Z"}`))
 		})
 
 		It("can be deserialised from JSON", func() {
-			jsonString := `{"id":1039,"name":"Cool agent","created":"2015-03-26T14:35:00Z"}`
+			jsonString := `{"id":1039,"name":"Cool agent","ownerUserId":2456,"created":"2015-03-26T14:35:00Z"}`
 			var agent Agent
 			err := json.Unmarshal([]byte(jsonString), &agent)
 
-			expectedAgent := Agent{AgentID: 1039, Name: "Cool agent", Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
+			expectedAgent := Agent{AgentID: 1039, Name: "Cool agent", OwnerUserID: 2456, Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
 			Expect(err).To(BeNil())
 			Expect(agent).To(Equal(expectedAgent))
 		})
@@ -137,7 +137,7 @@ var _ = Describe("Agent resource", func() {
 		Context("when the request is valid", func() {
 			It("returns HTTP 200 response with the details of the agent", func() {
 				getAgentCall := db.EXPECT().GetAgentByID(1234).Return(
-					Agent{AgentID: 1234, Name: "The name", Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
+					Agent{AgentID: 1234, Name: "The name", OwnerUserID: 5678, Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
 					nil)
 
 				getVariablesCall := db.EXPECT().GetVariablesForAgent(1234).Return(
@@ -153,6 +153,7 @@ var _ = Describe("Agent resource", func() {
 					json := string(bytes)
 					Expect(json).To(MatchJSON(`{` +
 						`"id":1234,` +
+						`"ownerUserId":5678,` +
 						`"name":"The name",` +
 						`"created":"2015-03-27T08:00:00Z",` +
 						`"variables":[{"id":2001,"name":"distance","units":"metres","displayDecimalPlaces":1,"created":"2015-03-20T18:00:00Z"}]` +

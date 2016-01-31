@@ -22,7 +22,7 @@ var _ = Describe("PostgresDatabase", func() {
 				migrationNames[i] = m.Id
 			}
 
-			// If this test fails, you probably need to run 'generate.sh'.
+			// If this test fails, you probably need to run 'make generate'.
 			Expect(migrationNames).To(Equal(expectedMigrationFileNames))
 		})
 	})

@@ -141,6 +141,46 @@ func db_migrations_0004_variables_table_add_display_decimal_places_sql() (*asset
 	return a, nil
 }
 
+var _db_migrations_0005_agents_table_enforce_name_not_null_sql = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\xd2\xd5\x55\xd0\xce\xcd\x4c\x2f\x4a\x2c\x49\x55\x08\x2d\xe0\x72\xf4\x09\x71\x0d\x52\x08\x71\x74\xf2\x71\x55\x48\x4c\x4f\xcd\x2b\x29\x56\x80\x08\x39\xfb\xfb\x84\xfa\xfa\x29\xe4\x25\xe6\xa6\x2a\x04\xbb\x86\x28\xf8\xf9\x03\x71\xa8\x8f\x8f\x35\x17\x17\xb2\x11\x2e\xf9\xe5\x79\xc4\x19\xe2\x12\xe4\x1f\x80\x64\x0a\x20\x00\x00\xff\xff\x48\x44\x96\xb5\x88\x00\x00\x00")
+
+func db_migrations_0005_agents_table_enforce_name_not_null_sql_bytes() ([]byte, error) {
+	return bindata_read(
+		_db_migrations_0005_agents_table_enforce_name_not_null_sql,
+		"db/migrations/0005_agents_table_enforce_name_not_null.sql",
+	)
+}
+
+func db_migrations_0005_agents_table_enforce_name_not_null_sql() (*asset, error) {
+	bytes, err := db_migrations_0005_agents_table_enforce_name_not_null_sql_bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindata_file_info{name: "db/migrations/0005_agents_table_enforce_name_not_null.sql", size: 136, mode: os.FileMode(420), modTime: time.Unix(1453676673, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _db_migrations_0006_create_users_table_sql = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\x6c\x51\xcd\x6e\xf2\x30\x10\xbc\xe7\x29\xe6\x08\xfa\x3e\x2e\x55\x7b\xe2\xb4\x24\x8b\x88\xea\x38\xd4\xb1\x5b\xd1\x4b\x64\x35\x16\x58\x82\x80\xe2\x54\xbc\x7e\x4d\x04\x14\x54\x6e\x89\xe7\x6f\x77\x76\x32\xc1\xbf\x9d\x5f\x77\xb6\x77\x30\x87\x24\x55\x4c\x9a\xa1\x69\x26\x18\xdf\xc1\x75\x01\xa3\x04\xc3\x57\xed\x1b\x54\xac\x72\x12\x58\xaa\xbc\x20\xb5\xc2\x2b\xaf\xfe\x47\xd4\xed\xac\xdf\xe2\x9d\x54\xba\x20\x35\x7a\x7a\x79\x1e\x43\x96\x1a\xd2\x08\x01\x23\xf3\x37\xc3\x27\xd6\xc1\x86\x70\xdc\x77\x4d\xed\x7b\x17\xe3\xfc\xbe\x0d\xc8\xa5\xbe\x52\xef\x38\xc1\x6e\x7b\xcc\x56\x9a\xe9\x31\xbe\xb1\x61\xf3\x00\xf7\xa1\xb6\xcd\xce\xb7\x98\x95\xa5\x60\x92\xbf\x73\x64\x3c\x27\x23\x34\xe6\x24\xaa\x61\x9c\xaf\xce\xc5\x9d\x1b\xe8\xbc\xe0\x4a\x53\xb1\xc4\x47\xae\x17\xc3\x2f\x3e\x4b\xc9\x7f\xa5\xa9\x51\x8a\xa5\xae\xaf\x8a\x64\x3c\x4d\x12\x12\x9a\xd5\xb9\x30\xbb\x76\x6d\x1f\x40\x59\x86\xb4\x14\xa6\x90\xd8\x1f\xdb\xd8\xdc\xa5\xbe\xdb\x75\xa1\x78\xce\xd1\x2f\xe5\xea\x52\xf4\x99\x76\x72\xbd\x3d\x4b\x16\x4d\x1e\xc5\x64\xaa\x5c\xde\xe7\xf8\x26\x4a\x87\xe7\x9b\x03\x4e\x93\x9f\x00\x00\x00\xff\xff\xdb\xfb\x3e\x99\xe4\x01\x00\x00")
+
+func db_migrations_0006_create_users_table_sql_bytes() ([]byte, error) {
+	return bindata_read(
+		_db_migrations_0006_create_users_table_sql,
+		"db/migrations/0006_create_users_table.sql",
+	)
+}
+
+func db_migrations_0006_create_users_table_sql() (*asset, error) {
+	bytes, err := db_migrations_0006_create_users_table_sql_bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindata_file_info{name: "db/migrations/0006_create_users_table.sql", size: 484, mode: os.FileMode(420), modTime: time.Unix(1453681917, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -197,6 +237,8 @@ var _bindata = map[string]func() (*asset, error){
 	"db/migrations/0002_create_variables_table.sql":                     db_migrations_0002_create_variables_table_sql,
 	"db/migrations/0003_create_data_table.sql":                          db_migrations_0003_create_data_table_sql,
 	"db/migrations/0004_variables_table_add_display_decimal_places.sql": db_migrations_0004_variables_table_add_display_decimal_places_sql,
+	"db/migrations/0005_agents_table_enforce_name_not_null.sql":         db_migrations_0005_agents_table_enforce_name_not_null_sql,
+	"db/migrations/0006_create_users_table.sql":                         db_migrations_0006_create_users_table_sql,
 }
 
 // AssetDir returns the file names below a certain
@@ -246,6 +288,8 @@ var _bintree = &_bintree_t{nil, map[string]*_bintree_t{
 			"0002_create_variables_table.sql":                     &_bintree_t{db_migrations_0002_create_variables_table_sql, map[string]*_bintree_t{}},
 			"0003_create_data_table.sql":                          &_bintree_t{db_migrations_0003_create_data_table_sql, map[string]*_bintree_t{}},
 			"0004_variables_table_add_display_decimal_places.sql": &_bintree_t{db_migrations_0004_variables_table_add_display_decimal_places_sql, map[string]*_bintree_t{}},
+			"0005_agents_table_enforce_name_not_null.sql":         &_bintree_t{db_migrations_0005_agents_table_enforce_name_not_null_sql, map[string]*_bintree_t{}},
+			"0006_create_users_table.sql":                         &_bintree_t{db_migrations_0006_create_users_table_sql, map[string]*_bintree_t{}},
 		}},
 	}},
 }}

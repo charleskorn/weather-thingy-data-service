@@ -89,6 +89,7 @@ var _ = Describe("HTTP endpoints", func() {
 					id := int(response["id"].(float64))
 					var name string
 					var created time.Time
+
 					err = db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &created)
 					Expect(err).To(BeNil())
 					Expect(name).To(Equal("New agent name"))
@@ -120,8 +121,9 @@ var _ = Describe("HTTP endpoints", func() {
 
 		Context("GET", func() {
 			It("returns all agents", func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (1, 'Test Agent 1', '2015-03-30 12:00:00+10:00');"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES (2, 'Test Agent 2', '2015-02-17 08:00:00+12:00');"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4);", 1, "Test Agent 1", 3001, "2015-03-30 12:00:00+10:00"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4);", 2, "Test Agent 2", 3001, "2015-02-17 08:00:00+12:00"))
 
 				resp, err := http.Get(urlFor("/v1/agents"))
 
@@ -150,7 +152,8 @@ var _ = Describe("HTTP endpoints", func() {
 	Describe("/v1/agents/:agent_id", func() {
 		Context("GET", func() {
 			It("returns all details of the agent", func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, created) VALUES ($1, $2, $3)", 1001, "First agent", "2015-04-05T03:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1001, "First agent", 3001, "2015-04-05T03:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
@@ -190,8 +193,9 @@ var _ = Describe("HTTP endpoints", func() {
 	Describe("/v1/agents/:agent_id/data", func() {
 		Context("POST", func() {
 			BeforeEach(func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES (1005, 'distance', 'metres', 1);"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id) VALUES ($1, $2, $3);", 1004, "Test Agent 1", 3001))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 			})
 
 			Context("when the data is valid", func() {
@@ -248,8 +252,9 @@ var _ = Describe("HTTP endpoints", func() {
 
 		Context("GET", func() {
 			It("retrieves the data from the database", func() {
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name) VALUES (1004, 'Test Agent 1');"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES (1005, 'distance', 'metres', 1);"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id) VALUES ($1, $2, $3);", 1004, "Test Agent 1", 3001))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 103, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 104, "2015-04-07T15:01:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 105, "2015-04-07T15:02:00Z"))
@@ -329,6 +334,65 @@ var _ = Describe("HTTP endpoints", func() {
 					Entry("because the units field is missing", `{"name":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
 					Entry("because the display decimal places field is not an integer", `{"name":"something","units":"something","displayDecimalPlaces":"abc"}`, http.StatusBadRequest),
 					Entry("because the display decimal places field is negative", `{"name":"something","units":"something","displayDecimalPlaces":-1}`, StatusUnprocessableEntity))
+			})
+		})
+	})
+
+	Describe("/v1/users", func() {
+		Context("POST", func() {
+			Context("when the user is valid", func() {
+				It("saves the user to the database and returns the variable ID", func() {
+					resp, err := http.Post(urlFor("/v1/users"), "application/json", strings.NewReader(`{"email":"test@testing.com","password":"test123"}`))
+
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+					Expect(resp.Header).To(haveJSONContentType())
+
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).To(BeNil())
+
+					var response map[string]interface{}
+					err = json.Unmarshal(responseBytes, &response)
+
+					Expect(err).To(BeNil())
+					Expect(response).To(HaveKey("id"))
+
+					id := int(response["id"].(float64))
+					var email string
+					var isAdmin bool
+					var created time.Time
+					row := db.DB().QueryRow("SELECT email, is_admin, created FROM users WHERE user_id = $1;", id)
+					err = row.Scan(&email, &isAdmin, &created)
+					Expect(err).To(BeNil())
+					Expect(email).To(Equal("test@testing.com"))
+					Expect(isAdmin).To(Equal(false))
+					Expect(created).To(BeTemporally("~", time.Now(), 1000*time.Millisecond))
+				})
+			})
+
+			// FIXME These tests don't really belong at this level
+			Context("when the user is invalid", func() {
+				DescribeTable("it does not save the user to the database and returns a HTTP 4xx response", func(body string, status int) {
+					var count int
+					err := db.DB().QueryRow("SELECT COUNT(*) FROM users;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+
+					resp, err := http.Post(urlFor("/v1/users"), "application/json", strings.NewReader(body))
+
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(status))
+					Expect(resp.Header).To(haveJSONContentType())
+
+					err = db.DB().QueryRow("SELECT COUNT(*) FROM users;").Scan(&count)
+					Expect(err).To(BeNil())
+					Expect(count).To(Equal(0))
+				},
+					Entry("because there are no fields", `{}`, StatusUnprocessableEntity),
+					Entry("because the email field is empty", `{"email":"","password":"something"}`, StatusUnprocessableEntity),
+					Entry("because the email field is missing", `{"password":"something"}`, StatusUnprocessableEntity),
+					Entry("because the password field is empty", `{"email":"test@test.com","password":""}`, StatusUnprocessableEntity),
+					Entry("because the password field is missing", `{"email":"test@test.com"}`, StatusUnprocessableEntity))
 			})
 		})
 	})

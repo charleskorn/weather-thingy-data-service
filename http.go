@@ -36,6 +36,7 @@ func startServer(config Config) {
 			g.Get("/agents/:agent_id/data", getData)
 			g.Post("/agents/:agent_id/data", binding.Bind(PostDataPoints{}), postDataPoints)
 			g.Post("/variables", binding.Bind(Variable{}), postVariable)
+			g.Post("/users", binding.Bind(PostUser{}), postUser)
 		}, withDatabaseConnection)
 	})
 

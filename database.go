@@ -29,6 +29,7 @@ type Database interface {
 	GetVariableByID(variableID int) (Variable, error)
 	GetVariablesForAgent(agentID int) ([]Variable, error)
 	GetAgentByID(agentID int) (Agent, error)
+	CreateUser(user *User) error
 }
 
 func getMigrationSource() migrate.MigrationSource {

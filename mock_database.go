@@ -215,3 +215,13 @@ func (_m *MockDatabase) GetAgentByID(agentID int) (Agent, error) {
 func (_mr *_MockDatabaseRecorder) GetAgentByID(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAgentByID", arg0)
 }
+
+func (_m *MockDatabase) CreateUser(user *User) error {
+	ret := _m.ctrl.Call(_m, "CreateUser", user)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDatabaseRecorder) CreateUser(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateUser", arg0)
+}

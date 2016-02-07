@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"errors"
+	"github.com/Sirupsen/logrus"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,11 +16,13 @@ var _ = Describe("Authentication", func() {
 	var render *MockRender
 	var db *MockDatabase
 	var request *http.Request
+	var logger *logrus.Entry
 
 	BeforeEach(func() {
 		mockController = gomock.NewController(GinkgoT())
 		render = NewMockRender(mockController)
 		db = NewMockDatabase(mockController)
+		logger = logrus.NewEntry(logrus.StandardLogger())
 
 		var err error
 		request, err = http.NewRequest("SOMETHING", "/", nil)
@@ -37,7 +40,7 @@ var _ = Describe("Authentication", func() {
 			render.EXPECT().Text(http.StatusUnauthorized, gomock.Any())
 			render.EXPECT().Header().Return(responseHeaders)
 
-			withAuthenticatedUser(render, request, nil, nil)
+			withAuthenticatedUser(render, request, nil, logger, nil)
 
 			Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`Basic realm="weather-thingy-data-service"`))
 		})
@@ -52,7 +55,7 @@ var _ = Describe("Authentication", func() {
 			render.EXPECT().Text(http.StatusUnauthorized, gomock.Any())
 			render.EXPECT().Header().Return(responseHeaders)
 
-			withAuthenticatedUser(render, request, nil, nil)
+			withAuthenticatedUser(render, request, nil, logger, nil)
 
 			Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`Basic realm="weather-thingy-data-service"`))
 		})
@@ -69,7 +72,7 @@ var _ = Describe("Authentication", func() {
 			render.EXPECT().Header().Return(responseHeaders)
 			db.EXPECT().GetUserByEmail("user@test.com").Return(User{}, errors.New("The user doesn't exist"))
 
-			withAuthenticatedUser(render, request, db, nil)
+			withAuthenticatedUser(render, request, db, logger, nil)
 
 			Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`Basic realm="weather-thingy-data-service"`))
 		})
@@ -88,7 +91,7 @@ var _ = Describe("Authentication", func() {
 			render.EXPECT().Header().Return(responseHeaders)
 			db.EXPECT().GetUserByEmail("user@test.com").Return(user, nil)
 
-			withAuthenticatedUser(render, request, db, nil)
+			withAuthenticatedUser(render, request, db, logger, nil)
 
 			Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`Basic realm="weather-thingy-data-service"`))
 		})
@@ -106,7 +109,7 @@ var _ = Describe("Authentication", func() {
 
 			db.EXPECT().GetUserByEmail("user@test.com").Return(user, nil)
 
-			withAuthenticatedUser(render, request, db, context)
+			withAuthenticatedUser(render, request, db, logger, context)
 
 			userType := reflect.TypeOf(User{})
 			userFromContext := context.Get(userType)

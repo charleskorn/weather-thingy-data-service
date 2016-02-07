@@ -69,11 +69,13 @@ var _ = Describe("Agent resource", func() {
 
 		It("saves the agent to the database and returns the ID of the newly created agent", func() {
 			agentId := 1019
+			user := User{UserID: 2349}
 
 			createCall := db.EXPECT().CreateAgent(gomock.Any()).Do(func(agent *Agent) error {
 				Expect(agent.Name).To(Equal("New agent name"))
 				Expect(agent.AgentID).To(Equal(0))
 				Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
+				Expect(agent.OwnerUserID).To(Equal(user.UserID))
 
 				agent.AgentID = agentId
 
@@ -92,7 +94,7 @@ var _ = Describe("Agent resource", func() {
 				db.EXPECT().RollbackUncommittedTransaction(),
 			)
 
-			postAgent(render, Agent{Name: "New agent name"}, db, nil)
+			postAgent(render, Agent{Name: "New agent name"}, db, user, nil)
 		})
 	})
 

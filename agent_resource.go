@@ -17,9 +17,9 @@ type Agent struct {
 	Created     time.Time `json:"created"`
 }
 
-func postAgent(r render.Render, agent Agent, db Database, log *logrus.Entry) {
+func postAgent(r render.Render, agent Agent, db Database, user User, log *logrus.Entry) {
 	agent.Created = time.Now()
-	agent.OwnerUserID = -1
+	agent.OwnerUserID = user.UserID
 
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")

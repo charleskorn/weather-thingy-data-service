@@ -30,8 +30,11 @@ func startServer(config Config) {
 		g.Get("/ping", getPing)
 
 		r.Group("", func(g martini.Router) {
+			r.Group("", func(g martini.Router) {
+				g.Post("/agents", binding.Bind(Agent{}), postAgent)
+			}, withAuthenticatedUser)
+
 			g.Get("/agents", getAllAgents)
-			g.Post("/agents", binding.Bind(Agent{}), postAgent)
 			g.Get("/agents/:agent_id", getAgent)
 			g.Get("/agents/:agent_id/data", getData)
 			g.Post("/agents/:agent_id/data", binding.Bind(PostDataPoints{}), postDataPoints)

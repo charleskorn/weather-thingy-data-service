@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"encoding/base64"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"io"
 )
 
 const (
@@ -29,6 +31,8 @@ func haveJSONContentType() types.GomegaMatcher {
 var _ = Describe("HTTP endpoints", func() {
 	var testDataSourceName string
 	var db Database
+	var testUser User
+	const testUserPassword string = "TestPassword123"
 
 	BeforeEach(func() {
 		testDataSourceName = getTestDataSourceName()
@@ -40,6 +44,18 @@ var _ = Describe("HTTP endpoints", func() {
 		_, err = db.RunMigrations()
 		Expect(err).To(BeNil())
 
+		testUser = User{
+			Email:   "validuser@testing.com",
+			IsAdmin: false,
+			Created: time.Now(),
+		}
+
+		testUser.SetPassword(testUserPassword)
+
+		Expect(db.BeginTransaction()).To(Succeed())
+		Expect(db.CreateUser(&testUser)).To(Succeed())
+		Expect(db.CommitTransaction()).To(Succeed())
+
 		go startServer(Config{ServerAddress: TestingAddress, DataSourceName: testDataSourceName})
 	})
 
@@ -48,6 +64,19 @@ var _ = Describe("HTTP endpoints", func() {
 		stopServer()
 		removeTestDatabase(testDataSourceName, false)
 	})
+
+	postWithAuthentication := func(url string, contentType string, body io.Reader) *http.Response {
+		request, err := http.NewRequest("POST", url, body)
+		Expect(err).To(BeNil())
+
+		request.Header.Set("Content-Type", contentType)
+		request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(testUser.Email+":"+testUserPassword)))
+
+		resp, err := http.DefaultClient.Do(request)
+		Expect(err).To(BeNil())
+
+		return resp
+	}
 
 	Describe("/v1/ping", func() {
 		Context("GET", func() {
@@ -71,9 +100,8 @@ var _ = Describe("HTTP endpoints", func() {
 		Context("POST", func() {
 			Context("when the agent is valid", func() {
 				It("saves the agent to the database and returns the agent ID", func() {
-					resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
+					resp := postWithAuthentication(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
 
-					Expect(err).To(BeNil())
 					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 					Expect(resp.Header).To(haveJSONContentType())
 
@@ -88,11 +116,13 @@ var _ = Describe("HTTP endpoints", func() {
 
 					id := int(response["id"].(float64))
 					var name string
+					var ownerUserId int
 					var created time.Time
 
-					err = db.DB().QueryRow("SELECT name, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &created)
+					err = db.DB().QueryRow("SELECT name, owner_user_id, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &ownerUserId, &created)
 					Expect(err).To(BeNil())
 					Expect(name).To(Equal("New agent name"))
+					Expect(ownerUserId).To(Equal(testUser.UserID))
 					Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
 				})
 			})
@@ -105,9 +135,8 @@ var _ = Describe("HTTP endpoints", func() {
 					Expect(err).To(BeNil())
 					Expect(count).To(Equal(0))
 
-					resp, err := http.Post(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":""}`))
+					resp := postWithAuthentication(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":""}`))
 
-					Expect(err).To(BeNil())
 					Expect(resp.StatusCode).To(Equal(StatusUnprocessableEntity))
 					Expect(resp.Header).To(haveJSONContentType())
 
@@ -374,7 +403,7 @@ var _ = Describe("HTTP endpoints", func() {
 			Context("when the user is invalid", func() {
 				DescribeTable("it does not save the user to the database and returns a HTTP 4xx response", func(body string, status int) {
 					var count int
-					err := db.DB().QueryRow("SELECT COUNT(*) FROM users;").Scan(&count)
+					err := db.DB().QueryRow("SELECT COUNT(*) FROM users WHERE email <> $1;", testUser.Email).Scan(&count)
 					Expect(err).To(BeNil())
 					Expect(count).To(Equal(0))
 
@@ -384,7 +413,7 @@ var _ = Describe("HTTP endpoints", func() {
 					Expect(resp.StatusCode).To(Equal(status))
 					Expect(resp.Header).To(haveJSONContentType())
 
-					err = db.DB().QueryRow("SELECT COUNT(*) FROM users;").Scan(&count)
+					err = db.DB().QueryRow("SELECT COUNT(*) FROM users WHERE email <> $1;", testUser.Email).Scan(&count)
 					Expect(err).To(BeNil())
 					Expect(count).To(Equal(0))
 				},

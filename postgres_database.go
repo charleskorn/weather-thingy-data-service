@@ -308,6 +308,30 @@ func (d *PostgresDatabase) CreateUser(user *User) error {
 	return row.Scan(&user.UserID)
 }
 
+func (d *PostgresDatabase) GetUserByEmail(email string) (User, error) {
+	rows, err := d.DB().Query(
+		`SELECT user_id, email, password_iterations, password_salt, password_hash, is_admin, created
+		 FROM users WHERE email = $1;`,
+		email)
+
+	if err != nil {
+		return User{}, err
+	}
+
+	defer rows.Close()
+
+	if !rows.Next() {
+		return User{}, fmt.Errorf("Cannot find user with email '%s'.", email)
+	}
+
+	user := User{}
+	if err := rows.Scan(&user.UserID, &user.Email, &user.PasswordIterations, &user.PasswordSalt, &user.PasswordHash, &user.IsAdmin, &user.Created); err != nil {
+		return User{}, err
+	}
+
+	return user, nil
+}
+
 func (d *PostgresDatabase) ensureTransaction() error {
 	if d.CurrentTransaction == nil {
 		return errors.New("An active transaction is required to call this method.")

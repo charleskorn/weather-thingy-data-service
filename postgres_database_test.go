@@ -478,6 +478,34 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(actualCreated).To(BeTemporally("==", created))
 			})
 		})
+
+		Describe("GetUserByEmail", func() {
+			BeforeEach(func() {
+				ExpectSucceeded(db.DB().Exec(`
+					INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin, created)
+					VALUES (1, 'test@testing.com', 12345, 'salty', 'pass', true, '2015-03-30 12:00:00+0:00');`))
+			})
+
+			It("retrieves the user if they exist", func() {
+				user, err := db.GetUserByEmail("test@testing.com")
+
+				Expect(err).To(BeNil())
+				Expect(user.Email).To(Equal("test@testing.com"))
+				Expect(user.PasswordIterations).To(Equal(12345))
+				Expect(user.PasswordSalt).To(Equal([]byte("salty")))
+				Expect(user.PasswordHash).To(Equal([]byte("pass")))
+				Expect(user.IsAdmin).To(Equal(true))
+				Expect(user.Created).To(BeTemporally("==", time.Date(2015, 3, 30, 12, 0, 0, 0, time.UTC)))
+			})
+
+			It("returns an error if they do not exist", func() {
+				user, err := db.GetUserByEmail("test@example.com")
+
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(HavePrefix("Cannot find user"))
+				Expect(user).To(Equal(User{}))
+			})
+		})
 	})
 })
 

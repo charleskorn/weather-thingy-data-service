@@ -225,3 +225,14 @@ func (_m *MockDatabase) CreateUser(user *User) error {
 func (_mr *_MockDatabaseRecorder) CreateUser(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateUser", arg0)
 }
+
+func (_m *MockDatabase) GetUserByEmail(email string) (User, error) {
+	ret := _m.ctrl.Call(_m, "GetUserByEmail", email)
+	ret0, _ := ret[0].(User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDatabaseRecorder) GetUserByEmail(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetUserByEmail", arg0)
+}

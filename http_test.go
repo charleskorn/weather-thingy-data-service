@@ -9,7 +9,6 @@ import (
 
 	"encoding/base64"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"io"
@@ -98,54 +97,32 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/agents", func() {
 		Context("POST", func() {
-			Context("when the agent is valid", func() {
-				It("saves the agent to the database and returns the agent ID", func() {
-					resp := postWithAuthentication(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
+			It("saves the agent to the database and returns the agent ID", func() {
+				resp := postWithAuthentication(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":"New agent name"}`))
 
-					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-					Expect(resp.Header).To(haveJSONContentType())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				Expect(resp.Header).To(haveJSONContentType())
 
-					responseBytes, err := ioutil.ReadAll(resp.Body)
-					Expect(err).To(BeNil())
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
 
-					var response map[string]interface{}
-					err = json.Unmarshal(responseBytes, &response)
+				var response map[string]interface{}
+				err = json.Unmarshal(responseBytes, &response)
 
-					Expect(err).To(BeNil())
-					Expect(response).To(HaveKey("id"))
+				Expect(err).To(BeNil())
+				Expect(response).To(HaveKey("id"))
 
-					id := int(response["id"].(float64))
-					var name string
-					var ownerUserId int
-					var created time.Time
+				id := int(response["id"].(float64))
+				var name string
+				var ownerUserId int
+				var created time.Time
 
-					err = db.DB().QueryRow("SELECT name, owner_user_id, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &ownerUserId, &created)
-					Expect(err).To(BeNil())
-					Expect(name).To(Equal("New agent name"))
-					Expect(ownerUserId).To(Equal(testUser.UserID))
-					Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
-				})
+				err = db.DB().QueryRow("SELECT name, owner_user_id, created FROM agents WHERE agent_id = $1;", id).Scan(&name, &ownerUserId, &created)
+				Expect(err).To(BeNil())
+				Expect(name).To(Equal("New agent name"))
+				Expect(ownerUserId).To(Equal(testUser.UserID))
+				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
 			})
-
-			// FIXME This test doesn't really belong at this level
-			Context("when the agent is invalid", func() {
-				It("does not save the agent to the database and returns a HTTP StatusUnprocessableEntity response", func() {
-					var count int
-					err := db.DB().QueryRow("SELECT COUNT(*) FROM agents;").Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-
-					resp := postWithAuthentication(urlFor("/v1/agents"), "application/json", strings.NewReader(`{"name":""}`))
-
-					Expect(resp.StatusCode).To(Equal(StatusUnprocessableEntity))
-					Expect(resp.Header).To(haveJSONContentType())
-
-					err = db.DB().QueryRow("SELECT COUNT(*) FROM agents;").Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				})
-			})
-
 		})
 
 		Context("GET", func() {
@@ -227,55 +204,24 @@ var _ = Describe("HTTP endpoints", func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 			})
 
-			Context("when the data is valid", func() {
-				It("saves the data to the database", func() {
-					resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
-					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+			It("saves the data to the database", func() {
+				resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
-					responseBytes, err := ioutil.ReadAll(resp.Body)
-					Expect(err).To(BeNil())
-					Expect(string(responseBytes)).To(Equal(""))
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
+				Expect(string(responseBytes)).To(Equal(""))
 
-					var agentID, variableID int
-					var value float64
-					var actualTime time.Time
-					err = db.DB().QueryRow("SELECT agent_id, variable_id, value, time FROM data;").Scan(&agentID, &variableID, &value, &actualTime)
-					Expect(err).To(BeNil())
-					Expect(agentID).To(Equal(1004))
-					Expect(variableID).To(Equal(1005))
-					Expect(value).To(Equal(10.5))
-					Expect(actualTime).To(BeTemporally("==", time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC)))
-				})
-			})
-
-			// FIXME These tests don't really belong at this level
-			Context("when the data is invalid", func() {
-				DescribeTable("it does not save the data to the database and returns a HTTP 4xx response", func(body string, status int) {
-					var count int
-					err := db.DB().QueryRow("SELECT COUNT(*) FROM data;").Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-
-					resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(body))
-
-					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(status))
-					Expect(resp.Header).To(haveJSONContentType())
-
-					err = db.DB().QueryRow("SELECT COUNT(*) FROM data;").Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				},
-					Entry("because there are no fields", `{}`, StatusUnprocessableEntity),
-					Entry("because the time field is empty", `{"time":"","data":[{"variable":"temperature","value":10}]}`, http.StatusBadRequest),
-					Entry("because the time field is missing", `{"data":[{"variable":"temperature","value":10}]}`, StatusUnprocessableEntity),
-					Entry("because the data field is empty", `{"time":"2015-01-02T03:04:05Z","data":[]}`, StatusUnprocessableEntity),
-					Entry("because the variable field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"","value":10}]}`, StatusUnprocessableEntity),
-					Entry("because the variable field is missing", `{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, StatusUnprocessableEntity),
-					Entry("because the value field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":""}]}`, http.StatusBadRequest),
-					Entry("because the time field is in an invalid format", `{"time":"blah","data":[{"variable":"temperature","value":10}]}`, http.StatusBadRequest),
-					Entry("because the value field is not a number", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":"abc"}]}`, http.StatusBadRequest))
+				var agentID, variableID int
+				var value float64
+				var actualTime time.Time
+				err = db.DB().QueryRow("SELECT agent_id, variable_id, value, time FROM data;").Scan(&agentID, &variableID, &value, &actualTime)
+				Expect(err).To(BeNil())
+				Expect(agentID).To(Equal(1004))
+				Expect(variableID).To(Equal(1005))
+				Expect(value).To(Equal(10.5))
+				Expect(actualTime).To(BeTemporally("==", time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC)))
 			})
 		})
 
@@ -307,121 +253,65 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/variables", func() {
 		Context("POST", func() {
-			Context("when the variable is valid", func() {
-				It("saves the variable to the database and returns the variable ID", func() {
-					resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
+			It("saves the variable to the database and returns the variable ID", func() {
+				resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
 
-					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-					Expect(resp.Header).To(haveJSONContentType())
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				Expect(resp.Header).To(haveJSONContentType())
 
-					responseBytes, err := ioutil.ReadAll(resp.Body)
-					Expect(err).To(BeNil())
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
 
-					var response map[string]interface{}
-					err = json.Unmarshal(responseBytes, &response)
+				var response map[string]interface{}
+				err = json.Unmarshal(responseBytes, &response)
 
-					Expect(err).To(BeNil())
-					Expect(response).To(HaveKey("id"))
+				Expect(err).To(BeNil())
+				Expect(response).To(HaveKey("id"))
 
-					id := int(response["id"].(float64))
-					var name, units string
-					var created time.Time
-					var displayDecimalPlaces int
-					row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
-					err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
-					Expect(err).To(BeNil())
-					Expect(name).To(Equal("New variable name"))
-					Expect(units).To(Equal("seconds (s)"))
-					Expect(displayDecimalPlaces).To(Equal(2))
-					Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
-				})
-			})
-
-			// FIXME These tests don't really belong at this level
-			Context("when the variable is invalid", func() {
-				DescribeTable("it does not save the variable to the database and returns a HTTP 4xx response", func(body string, status int) {
-					var count int
-					err := db.DB().QueryRow("SELECT COUNT(*) FROM variables;").Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-
-					resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(body))
-
-					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(status))
-					Expect(resp.Header).To(haveJSONContentType())
-
-					err = db.DB().QueryRow("SELECT COUNT(*) FROM variables;").Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				},
-					Entry("because there are no fields", `{}`, StatusUnprocessableEntity),
-					Entry("because the name field is empty", `{"name":"","units":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
-					Entry("because the name field is missing", `{"units":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
-					Entry("because the units field is empty", `{"name":"something","units":"","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
-					Entry("because the units field is missing", `{"name":"something","displayDecimalPlaces":1}`, StatusUnprocessableEntity),
-					Entry("because the display decimal places field is not an integer", `{"name":"something","units":"something","displayDecimalPlaces":"abc"}`, http.StatusBadRequest),
-					Entry("because the display decimal places field is negative", `{"name":"something","units":"something","displayDecimalPlaces":-1}`, StatusUnprocessableEntity))
+				id := int(response["id"].(float64))
+				var name, units string
+				var created time.Time
+				var displayDecimalPlaces int
+				row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
+				err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
+				Expect(err).To(BeNil())
+				Expect(name).To(Equal("New variable name"))
+				Expect(units).To(Equal("seconds (s)"))
+				Expect(displayDecimalPlaces).To(Equal(2))
+				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
 			})
 		})
 	})
 
 	Describe("/v1/users", func() {
 		Context("POST", func() {
-			Context("when the user is valid", func() {
-				It("saves the user to the database and returns the variable ID", func() {
-					resp, err := http.Post(urlFor("/v1/users"), "application/json", strings.NewReader(`{"email":"test@testing.com","password":"test123"}`))
+			It("saves the user to the database and returns the variable ID", func() {
+				resp, err := http.Post(urlFor("/v1/users"), "application/json", strings.NewReader(`{"email":"test@testing.com","password":"test123"}`))
 
-					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-					Expect(resp.Header).To(haveJSONContentType())
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+				Expect(resp.Header).To(haveJSONContentType())
 
-					responseBytes, err := ioutil.ReadAll(resp.Body)
-					Expect(err).To(BeNil())
+				responseBytes, err := ioutil.ReadAll(resp.Body)
+				Expect(err).To(BeNil())
 
-					var response map[string]interface{}
-					err = json.Unmarshal(responseBytes, &response)
+				var response map[string]interface{}
+				err = json.Unmarshal(responseBytes, &response)
 
-					Expect(err).To(BeNil())
-					Expect(response).To(HaveKey("id"))
+				Expect(err).To(BeNil())
+				Expect(response).To(HaveKey("id"))
 
-					id := int(response["id"].(float64))
-					var email string
-					var isAdmin bool
-					var created time.Time
-					row := db.DB().QueryRow("SELECT email, is_admin, created FROM users WHERE user_id = $1;", id)
-					err = row.Scan(&email, &isAdmin, &created)
-					Expect(err).To(BeNil())
-					Expect(email).To(Equal("test@testing.com"))
-					Expect(isAdmin).To(Equal(false))
-					Expect(created).To(BeTemporally("~", time.Now(), 1000*time.Millisecond))
-				})
-			})
-
-			// FIXME These tests don't really belong at this level
-			Context("when the user is invalid", func() {
-				DescribeTable("it does not save the user to the database and returns a HTTP 4xx response", func(body string, status int) {
-					var count int
-					err := db.DB().QueryRow("SELECT COUNT(*) FROM users WHERE email <> $1;", testUser.Email).Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-
-					resp, err := http.Post(urlFor("/v1/users"), "application/json", strings.NewReader(body))
-
-					Expect(err).To(BeNil())
-					Expect(resp.StatusCode).To(Equal(status))
-					Expect(resp.Header).To(haveJSONContentType())
-
-					err = db.DB().QueryRow("SELECT COUNT(*) FROM users WHERE email <> $1;", testUser.Email).Scan(&count)
-					Expect(err).To(BeNil())
-					Expect(count).To(Equal(0))
-				},
-					Entry("because there are no fields", `{}`, StatusUnprocessableEntity),
-					Entry("because the email field is empty", `{"email":"","password":"something"}`, StatusUnprocessableEntity),
-					Entry("because the email field is missing", `{"password":"something"}`, StatusUnprocessableEntity),
-					Entry("because the password field is empty", `{"email":"test@test.com","password":""}`, StatusUnprocessableEntity),
-					Entry("because the password field is missing", `{"email":"test@test.com"}`, StatusUnprocessableEntity))
+				id := int(response["id"].(float64))
+				var email string
+				var isAdmin bool
+				var created time.Time
+				row := db.DB().QueryRow("SELECT email, is_admin, created FROM users WHERE user_id = $1;", id)
+				err = row.Scan(&email, &isAdmin, &created)
+				Expect(err).To(BeNil())
+				Expect(email).To(Equal("test@testing.com"))
+				Expect(isAdmin).To(Equal(false))
+				Expect(created).To(BeTemporally("~", time.Now(), 1000*time.Millisecond))
 			})
 		})
 	})

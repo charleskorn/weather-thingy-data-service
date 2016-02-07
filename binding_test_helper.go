@@ -9,14 +9,15 @@ import (
 	"strings"
 )
 
-func TestValidation(obj interface{}) binding.Errors {
+func TestValidation(json string, objectType interface{}) binding.Errors {
 	context := NewTestContext()
 	context.Map(context)
 
-	request, _ := http.NewRequest("TEST", "/blah", strings.NewReader(""))
+	request, _ := http.NewRequest("TEST", "/blah", strings.NewReader(json))
+	request.Header.Set("Content-Type", "application/json")
 	context.Map(request)
 
-	validatorFunc := binding.Validate(obj)
+	validatorFunc := binding.Bind(objectType)
 	_, err := context.Invoke(validatorFunc)
 	Expect(err).ShouldNot(HaveOccurred())
 

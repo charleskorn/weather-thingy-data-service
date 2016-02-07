@@ -9,6 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/martini-contrib/binding"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -50,37 +51,30 @@ var _ = Describe("Variables resource", func() {
 
 		Describe("validation", func() {
 			It("succeeds if all properties are set to valid values", func() {
-				errors := TestValidation(Variable{Name: "Distance", Units: "metres (m)", DisplayDecimalPlaces: 2})
+				errors := TestValidation(`{"name":"Distance", "units":"metres (m)", "displayDecimalPlaces":2}`, Variable{})
 				Expect(errors).To(BeEmpty())
 			})
 
-			It("fails if name property is not set", func() {
-				errors := TestValidation(Variable{Units: "metres (m)", DisplayDecimalPlaces: 2})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("name"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
+			It("succeeds if display decimal places property is zero", func() {
+				errors := TestValidation(`{"name":"Distance", "units":"metres (m)", "displayDecimalPlaces":0}`, Variable{})
+				Expect(errors).To(BeEmpty())
 			})
 
-			It("fails if units property is not set", func() {
-				errors := TestValidation(Variable{Name: "Distance", DisplayDecimalPlaces: 2})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("units"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
-
-			It("fails if display decimal places property is zero", func() {
-				errors := TestValidation(Variable{Name: "Distance", Units: "metres (m)", DisplayDecimalPlaces: 0})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("displayDecimalPlaces"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
-
-			It("fails if display decimal places property is negative", func() {
-				errors := TestValidation(Variable{Name: "Distance", Units: "metres (m)", DisplayDecimalPlaces: -1})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("displayDecimalPlaces"))
-				Expect(errors[0].Classification).To(Equal("OutOfRangeError"))
-			})
+			DescribeTable("it fails if the data is invalid", func(body string, classification string, missingFieldNames ...string) {
+				errors := TestValidation(body, Variable{})
+				Expect(errors).To(HaveLen(1))
+				Expect(errors[0].Classification).To(Equal(classification))
+				Expect(errors[0].FieldNames).To(Equal(missingFieldNames))
+			},
+				Entry("because the name property is missing", `{"units":"metres (m)", "displayDecimalPlaces":2}`, binding.RequiredError, "name"),
+				Entry("because the name property is empty", `{"name":"", "units":"metres (m)", "displayDecimalPlaces":2}`, binding.RequiredError, "name"),
+				Entry("because the units property is missing", `{"name":"Distance", "displayDecimalPlaces":2}`, binding.RequiredError, "units"),
+				Entry("because the units property is empty", `{"name":"Distance", "units":"", "displayDecimalPlaces":2}`, binding.RequiredError, "units"),
+				Entry("because the displayDecimalPlaces property is empty", `{"name":"Distance", "units":"metres (m)", "displayDecimalPlaces":""}`, binding.DeserializationError),
+				Entry("because the displayDecimalPlaces property is a decimal number", `{"name":"Distance", "units":"metres (m)", "displayDecimalPlaces":2.5}`, binding.DeserializationError),
+				Entry("because the displayDecimalPlaces property is not a number", `{"name":"Distance", "units":"metres (m)", "displayDecimalPlaces":"abc"}`, binding.DeserializationError),
+				Entry("because the displayDecimalPlaces property is negative", `{"name":"Distance", "units":"metres (m)", "displayDecimalPlaces":-2}`, "OutOfRangeError", "displayDecimalPlaces"),
+			)
 		})
 	})
 

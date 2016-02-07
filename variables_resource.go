@@ -12,7 +12,7 @@ type Variable struct {
 	VariableID           int       `json:"id"`
 	Name                 string    `json:"name" binding:"required"`
 	Units                string    `json:"units" binding:"required"`
-	DisplayDecimalPlaces int       `json:"displayDecimalPlaces" binding:"required"`
+	DisplayDecimalPlaces int       `json:"displayDecimalPlaces"`
 	Created              time.Time `json:"created"`
 }
 

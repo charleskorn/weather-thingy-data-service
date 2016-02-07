@@ -6,6 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/martini-contrib/binding"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"net/http"
 	"time"
@@ -95,30 +96,22 @@ var _ = Describe("User resource", func() {
 
 		Describe("validation", func() {
 			It("succeeds if all required properties are set", func() {
-				errors := TestValidation(PostUser{Email: "test@example.com", Password: "password1"})
+				errors := TestValidation(`{"email":"test@example.com", "password":"password1"}`, PostUser{})
 				Expect(errors).To(BeEmpty())
 			})
 
-			It("fails if email property is not set", func() {
-				errors := TestValidation(PostUser{Password: "password1"})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("email"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
-
-			It("fails if email property is not a valid email address", func() {
-				errors := TestValidation(PostUser{Email: "test", Password: "password1"})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("email"))
-				Expect(errors[0].Classification).To(Equal("InvalidValue"))
-			})
-
-			It("fails if password property is not set", func() {
-				errors := TestValidation(PostUser{Email: "test@example.com"})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("password"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
+			DescribeTable("it fails if the data is invalid", func(body string, missingFieldName string, classification string) {
+				errors := TestValidation(body, PostUser{})
+				Expect(errors).To(HaveLen(1))
+				Expect(errors[0].FieldNames).To(Equal([]string{missingFieldName}))
+				Expect(errors[0].Classification).To(Equal(classification))
+			},
+				Entry("because the email property is missing", `{"password":"password1"}`, "email", binding.RequiredError),
+				Entry("because the email property is empty", `{"email":"", "password":"password1"}`, "email", binding.RequiredError),
+				Entry("because the email property is not an email address", `{"email":"test", "password":"password1"}`, "email", "InvalidValue"),
+				Entry("because the password property is missing", `{"email":"test@example.com"}`, "password", binding.RequiredError),
+				Entry("because the password property is empty", `{"email":"test@example.com", "password":""}`, "password", binding.RequiredError),
+			)
 		})
 	})
 

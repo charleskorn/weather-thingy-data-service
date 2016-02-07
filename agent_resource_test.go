@@ -10,6 +10,7 @@ import (
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -45,16 +46,19 @@ var _ = Describe("Agent resource", func() {
 
 		Describe("validation", func() {
 			It("succeeds if all required properties are set", func() {
-				errors := TestValidation(Agent{Name: "Test Agent"})
+				errors := TestValidation(`{"name": "Test Agent"}`, Agent{})
 				Expect(errors).To(BeEmpty())
 			})
 
-			It("fails if name property is not set", func() {
-				errors := TestValidation(Agent{})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("name"))
+			DescribeTable("it fails if the data is invalid", func(body string, missingFieldName string) {
+				errors := TestValidation(body, Agent{})
+				Expect(errors).To(HaveLen(1))
+				Expect(errors[0].FieldNames).To(Equal([]string{missingFieldName}))
 				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
+			},
+				Entry("because the name property is not present", `{}`, "name"),
+				Entry("because the name property is empty", `{"name": ""}`, "name"),
+			)
 		})
 	})
 

@@ -14,6 +14,7 @@ import (
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -50,47 +51,44 @@ var _ = Describe("Data resource", func() {
 
 		Describe("validation", func() {
 			It("succeeds if all required properties are set", func() {
-				errors := TestValidation(PostDataPoints{
-					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
-					Data: []PostDataPoint{
-						{Variable: "temperature", Value: 10.5},
-					},
-				})
+				json := `{
+						"time": "2015-05-06T10:15:30Z",
+						"data": [
+							{
+								"variable": "temperature",
+								"value": 10.5
+							}
+						]
+					}`
+
+				errors := TestValidation(json, PostDataPoints{})
 				Expect(errors).To(BeEmpty())
 			})
 
-			It("fails if time property is not set", func() {
-				errors := TestValidation(PostDataPoints{
-					Data: []PostDataPoint{
-						{Variable: "temperature", Value: 10.5},
-					},
-				})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("time"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
+			DescribeTable("it fails if the data is invalid", func(body string, classification string, missingFieldNames ...string) {
+				errors := TestValidation(body, PostDataPoints{})
+				Expect(errors).To(HaveLen(1))
+				Expect(errors[0].FieldNames).To(Equal(missingFieldNames))
+				Expect(errors[0].Classification).To(Equal(classification))
+			},
+				Entry("because the time property is not set", `{"data":[{"variable":"temperature", "value":10.5}]}`, binding.RequiredError, "time"),
+				Entry("because the time field is missing", `{"data":[{"variable":"temperature","value":10}]}`, binding.RequiredError, "time"),
+				Entry("because the data field is missing", `{"time":"2015-05-06T10:15:30Z"}`, binding.RequiredError, "data"),
+				Entry("because no data is provided", `{"time":"2015-05-06T10:15:30Z", "data":[]}`, binding.RequiredError, "data"),
+				Entry("because the variable field is empty", `{"time":"2015-05-06T10:15:30Z", "data":[{"variable":"", "value":10.5}]}`, binding.RequiredError, "variable"),
+				Entry("because the variable field is missing", `{"time":"2015-01-02T03:04:05Z","data":[{"value":10}]}`, binding.RequiredError, "variable"),
+				Entry("because the value field is empty", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":""}]}`, binding.DeserializationError),
+				Entry("because the value field is not a number", `{"time":"2015-01-02T03:04:05Z","data":[{"variable":"temperature","value":"abc"}]}`, binding.DeserializationError),
+			)
 
-			It("fails if no data is provided", func() {
-				errors := TestValidation(PostDataPoints{
-					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
-					Data: []PostDataPoint{},
-				})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("data"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
-
-			It("fails if no variable name is provided for a data point", func() {
-				errors := TestValidation(PostDataPoints{
-					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
-					Data: []PostDataPoint{
-						{Value: 10.5},
-					},
-				})
-				Expect(errors).ToNot(BeEmpty())
-				Expect(errors[0].FieldNames).To(ContainElement("variable"))
-				Expect(errors[0].Classification).To(Equal(binding.RequiredError))
-			})
+			DescribeTable("it fails if the time field is invalid", func(body string) {
+				errors := TestValidation(body, PostDataPoints{})
+				Expect(len(errors)).To(BeNumerically(">=", 1))
+				Expect(errors[0].Classification).To(Equal(binding.DeserializationError))
+			},
+				Entry("because the time field is empty", `{"time":"","data":[{"variable":"temperature","value":10}]}`),
+				Entry("because the time field is in an invalid format", `{"time":"blah","data":[{"variable":"temperature","value":10}]}`),
+			)
 		})
 	})
 

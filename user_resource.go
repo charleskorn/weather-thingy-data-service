@@ -54,7 +54,7 @@ func (user *User) ComputePasswordHash(password string) []byte {
 
 func (user PostUser) Validate(errors binding.Errors, _ *http.Request) binding.Errors {
 	// TODO: proper email validation
-	if !strings.Contains(user.Email, "@") {
+	if user.Email != "" && !strings.Contains(user.Email, "@") {
 		errors = append(errors, binding.Error{
 			FieldNames:     []string{"email"},
 			Classification: "InvalidValue",

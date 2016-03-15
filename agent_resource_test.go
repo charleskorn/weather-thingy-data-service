@@ -74,21 +74,26 @@ var _ = Describe("Agent resource", func() {
 
 		It("saves the agent to the database and returns the ID of the newly created agent", func() {
 			agentId := 1019
+			token := ""
 			user := User{UserID: 2349}
 
 			createCall := db.EXPECT().CreateAgent(gomock.Any()).Do(func(agent *Agent) error {
 				Expect(agent.Name).To(Equal("New agent name"))
 				Expect(agent.AgentID).To(Equal(0))
 				Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
+				Expect(agent.Token).ToNot(BeEmpty())
 				Expect(agent.OwnerUserID).To(Equal(user.UserID))
 
 				agent.AgentID = agentId
+
+				token = agent.Token
 
 				return nil
 			})
 
 			jsonCall := render.EXPECT().JSON(http.StatusCreated, gomock.Any()).Do(func(status int, value interface{}) {
 				Expect(value).To(HaveKeyWithValue("id", agentId))
+				Expect(value).To(HaveKeyWithValue("token", token))
 			})
 
 			gomock.InOrder(

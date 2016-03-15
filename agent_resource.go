@@ -4,11 +4,15 @@ import (
 	"net/http"
 	"time"
 
+	"crypto/rand"
+	"encoding/base64"
 	"github.com/Sirupsen/logrus"
 	"github.com/go-martini/martini"
 	"github.com/martini-contrib/render"
 	"strconv"
 )
+
+const tokenBytes = 64
 
 type Agent struct {
 	AgentID     int       `json:"id"`
@@ -21,6 +25,14 @@ type Agent struct {
 func postAgent(r render.Render, agent Agent, db Database, user User, log *logrus.Entry) {
 	agent.Created = time.Now()
 	agent.OwnerUserID = user.UserID
+
+	if token, err := generateAgentToken(); err != nil {
+		log.WithError(err).Error("Could not generate agent token.")
+		r.Error(http.StatusInternalServerError)
+		return
+	} else {
+		agent.Token = token
+	}
 
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")
@@ -42,7 +54,21 @@ func postAgent(r render.Render, agent Agent, db Database, user User, log *logrus
 		return
 	}
 
-	r.JSON(http.StatusCreated, map[string]interface{}{"id": agent.AgentID})
+	r.JSON(http.StatusCreated, map[string]interface{}{
+		"id":    agent.AgentID,
+		"token": agent.Token,
+	})
+}
+
+func generateAgentToken() (string, error) {
+	b := make([]byte, tokenBytes)
+	_, err := rand.Read(b)
+
+	if err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 func getAllAgents(r render.Render, db Database, log *logrus.Entry) {

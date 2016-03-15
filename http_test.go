@@ -43,6 +43,8 @@ var _ = Describe("HTTP endpoints", func() {
 		_, err = db.RunMigrations()
 		Expect(err).To(BeNil())
 
+		go startServer(Config{ServerAddress: TestingAddress, DataSourceName: testDataSourceName})
+
 		testUser = User{
 			Email:   "validuser@testing.com",
 			IsAdmin: false,
@@ -54,8 +56,6 @@ var _ = Describe("HTTP endpoints", func() {
 		Expect(db.BeginTransaction()).To(Succeed())
 		Expect(db.CreateUser(&testUser)).To(Succeed())
 		Expect(db.CommitTransaction()).To(Succeed())
-
-		go startServer(Config{ServerAddress: TestingAddress, DataSourceName: testDataSourceName})
 	})
 
 	AfterEach(func() {

@@ -259,17 +259,34 @@ var _ = Describe("HTTP endpoints", func() {
 		})
 
 		Context("GET", func() {
-			It("retrieves the data from the database", func() {
+			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1004, "Test Agent 1", "doesnotmatter", 3001))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1004, "Test Agent 1", "doesnotmatter", testUser.UserID))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1005, "Test Agent 2", "doesnotmatter", 3001))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 103, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 104, "2015-04-07T15:01:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 105, "2015-04-07T15:02:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 106, "2015-04-07T15:03:00Z"))
+			})
 
-				resp, err := http.Get(urlFor("/v1/agents/1004/data?variable=1005&date_from=2015-04-07T15:00:30Z&date_to=2015-04-07T15:02:30Z"))
-				Expect(err).To(BeNil())
+			Context("when not authenticated", func() {
+				It("returns HTTP 401", func() {
+					resp, err := http.Get(urlFor("/v1/agents/1004/data"))
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+				})
+			})
+
+			Context("when authenticated as a user that does not own the agent", func() {
+				It("returns HTTP 401", func() {
+					resp := getWithAuthentication(urlFor("/v1/agents/1005/data"))
+					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+				})
+			})
+
+			It("retrieves the data from the database", func() {
+				resp := getWithAuthentication(urlFor("/v1/agents/1004/data?variable=1005&date_from=2015-04-07T15:00:30Z&date_to=2015-04-07T15:02:30Z"))
 				Expect(resp.StatusCode).To(Equal(http.StatusOK))
 				Expect(resp.Header).To(haveJSONContentType())
 

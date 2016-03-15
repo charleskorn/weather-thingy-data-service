@@ -9,6 +9,7 @@ import (
 
 	"fmt"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/go-martini/martini"
 	"github.com/golang/mock/gomock"
 	"github.com/martini-contrib/binding"
@@ -225,11 +226,11 @@ var _ = Describe("Data resource", func() {
 	})
 
 	Describe("GET request handler", func() {
-		var makeRequest = func(query string, agentID string, render render.Render, db Database) {
+		var makeRequest = func(query string, agentID string, render render.Render, user User, db Database) {
 			request, _ := http.NewRequest("GET", "/blah?"+query, strings.NewReader(""))
 			params := martini.Params{"agent_id": agentID}
 
-			getData(render, request, params, db, nil)
+			getData(render, request, params, db, user, logrus.NewEntry(logrus.StandardLogger()))
 		}
 
 		var db *MockDatabase
@@ -268,10 +269,12 @@ var _ = Describe("Data resource", func() {
 
 				fromDate := time.Date(2015, 3, 27, 5, 0, 0, 0, time.UTC)
 				toDate := time.Date(2015, 3, 28, 23, 50, 45, 0, time.UTC)
+				user := User{UserID: 1000}
 
 				gomock.InOrder(
 					db.EXPECT().BeginTransaction(),
 					db.EXPECT().CheckAgentIDExists(1).Return(true, nil),
+					db.EXPECT().GetAgentByID(1).Return(Agent{OwnerUserID: user.UserID}, nil),
 					db.EXPECT().GetVariableByID(123).Return(variable123, nil),
 					db.EXPECT().GetData(1, 123, fromDate, toDate).Return(variable123Data, nil),
 					db.EXPECT().GetVariableByID(321).Return(variable321, nil),
@@ -281,7 +284,21 @@ var _ = Describe("Data resource", func() {
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 
-				makeRequest("variable=123&variable=321&date_from=2015-03-27T05:00:00Z&date_to=2015-03-28T23:50:45Z", "1", render, db)
+				makeRequest("variable=123&variable=321&date_from=2015-03-27T05:00:00Z&date_to=2015-03-28T23:50:45Z", "1", render, user, db)
+			})
+		})
+
+		Context("when the user is not the owner of the agent", func() {
+			It("returns a HTTP 401 response", func() {
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					db.EXPECT().CheckAgentIDExists(1).Return(true, nil),
+					db.EXPECT().GetAgentByID(1).Return(Agent{OwnerUserID: 1000}, nil),
+					render.EXPECT().Error(http.StatusUnauthorized),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				makeRequest("", "1", render, User{UserID: 1234}, db)
 			})
 		})
 
@@ -289,7 +306,7 @@ var _ = Describe("Data resource", func() {
 			TheRequestFailsWithCode := func(query string, agentID string, responseCode int) {
 				It(fmt.Sprintf("returns HTTP %v response", responseCode), func() {
 					render.EXPECT().Text(responseCode, gomock.Any())
-					makeRequest(query, agentID, render, db)
+					makeRequest(query, agentID, render, User{}, db)
 				})
 			}
 
@@ -302,6 +319,7 @@ var _ = Describe("Data resource", func() {
 					db.EXPECT().BeginTransaction(),
 					db.EXPECT().CheckAgentIDExists(909090).Return(false, nil).AnyTimes(),
 					db.EXPECT().CheckAgentIDExists(1).Return(true, nil).AnyTimes(),
+					db.EXPECT().GetAgentByID(1).Return(Agent{}, nil).AnyTimes(),
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 			})

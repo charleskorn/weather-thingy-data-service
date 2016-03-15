@@ -33,10 +33,10 @@ func startServer(config Config) {
 			r.Group("", func(g martini.Router) {
 				g.Post("/agents", binding.Bind(Agent{}), postAgent)
 				g.Get("/agents/:agent_id", getAgent)
+				g.Get("/agents/:agent_id/data", getData)
 			}, withAuthenticatedUser)
 
 			g.Get("/agents", getAllAgents)
-			g.Get("/agents/:agent_id/data", getData)
 			g.Post("/agents/:agent_id/data", binding.Bind(PostDataPoints{}), postDataPoints)
 			g.Post("/variables", binding.Bind(Variable{}), postVariable)
 			g.Post("/users", binding.Bind(PostUser{}), postUser)

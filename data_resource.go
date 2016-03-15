@@ -108,7 +108,7 @@ func (data PostDataPoints) Validate(errors binding.Errors, _ *http.Request) bind
 	return errors
 }
 
-func getData(render render.Render, req *http.Request, params martini.Params, db Database, log *logrus.Entry) {
+func getData(render render.Render, req *http.Request, params martini.Params, db Database, user User, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")
 		render.Error(http.StatusInternalServerError)
@@ -120,6 +120,20 @@ func getData(render render.Render, req *http.Request, params martini.Params, db 
 	agentID, ok := extractAgentID(params, render, db, log)
 
 	if !ok {
+		return
+	}
+
+	agent, err := db.GetAgentByID(agentID)
+
+	if err != nil {
+		log.WithError(err).Error("Could not get agent.")
+		render.Error(http.StatusInternalServerError)
+		return
+	}
+
+	if agent.OwnerUserID != user.UserID {
+		log.WithError(err).Error("User does not own this agent.")
+		render.Error(http.StatusUnauthorized)
 		return
 	}
 

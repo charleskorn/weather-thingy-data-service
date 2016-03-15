@@ -140,8 +140,8 @@ var _ = Describe("HTTP endpoints", func() {
 		Context("GET", func() {
 			It("returns all agents", func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4);", 1, "Test Agent 1", 3001, "2015-03-30 12:00:00+10:00"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4);", 2, "Test Agent 2", 3001, "2015-02-17 08:00:00+12:00"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token, created) VALUES ($1, $2, $3, $4, $5);", 1, "Test Agent 1", 3001, "doesnotmatter", "2015-03-30 12:00:00+10:00"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token, created) VALUES ($1, $2, $3, $4, $5);", 2, "Test Agent 2", 3001, "doesnotmatter", "2015-02-17 08:00:00+12:00"))
 
 				resp, err := http.Get(urlFor("/v1/agents"))
 
@@ -159,9 +159,11 @@ var _ = Describe("HTTP endpoints", func() {
 				Expect(response).To(HaveLen(2))
 				Expect(response[0]).To(HaveKeyWithValue("id", float64(1)))
 				Expect(response[0]).To(HaveKeyWithValue("name", "Test Agent 1"))
+				Expect(response[0]).To(HaveKeyWithValue("ownerUserId", float64(3001)))
 				Expect(response[0]).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC))))
 				Expect(response[1]).To(HaveKeyWithValue("id", float64(2)))
 				Expect(response[1]).To(HaveKeyWithValue("name", "Test Agent 2"))
+				Expect(response[1]).To(HaveKeyWithValue("ownerUserId", float64(3001)))
 				Expect(response[1]).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 2, 16, 20, 0, 0, 0, time.UTC))))
 			})
 		})
@@ -171,8 +173,8 @@ var _ = Describe("HTTP endpoints", func() {
 		Context("GET", func() {
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1001, "First agent", testUser.UserID, "2015-04-05T03:00:00Z"))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1002, "Other agent", 3001, "2015-04-05T03:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token, created) VALUES ($1, $2, $3, $4, $5)", 1001, "First agent", testUser.UserID, "doesnotmatter", "2015-04-05T03:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token, created) VALUES ($1, $2, $3, $4, $5)", 1002, "Other agent", 3001, "doesnotmatter", "2015-04-05T03:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
@@ -231,7 +233,7 @@ var _ = Describe("HTTP endpoints", func() {
 		Context("POST", func() {
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id) VALUES ($1, $2, $3);", 1004, "Test Agent 1", 3001))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1004, "Test Agent 1", "doesnotmatter", 3001))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 			})
 
@@ -259,7 +261,7 @@ var _ = Describe("HTTP endpoints", func() {
 		Context("GET", func() {
 			It("retrieves the data from the database", func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id) VALUES ($1, $2, $3);", 1004, "Test Agent 1", 3001))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1004, "Test Agent 1", "doesnotmatter", 3001))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 103, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1004, 1005, 104, "2015-04-07T15:01:00Z"))

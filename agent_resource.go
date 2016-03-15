@@ -14,6 +14,7 @@ type Agent struct {
 	AgentID     int       `json:"id"`
 	OwnerUserID int       `json:"ownerUserId"`
 	Name        string    `json:"name" binding:"required"`
+	Token       string    `json:"-"`
 	Created     time.Time `json:"created"`
 }
 

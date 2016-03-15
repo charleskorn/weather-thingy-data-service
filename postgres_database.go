@@ -103,16 +103,17 @@ func (d *PostgresDatabase) CreateAgent(agent *Agent) error {
 	}
 
 	row := d.CurrentTransaction.QueryRow(
-		"INSERT INTO agents (name, owner_user_id, created) VALUES ($1, $2, $3) RETURNING agent_id",
+		"INSERT INTO agents (name, owner_user_id, token, created) VALUES ($1, $2, $3, $4) RETURNING agent_id",
 		agent.Name,
 		agent.OwnerUserID,
+		agent.Token,
 		agent.Created)
 
 	return row.Scan(&agent.AgentID)
 }
 
 func (d *PostgresDatabase) GetAllAgents() ([]Agent, error) {
-	rows, err := d.DB().Query("SELECT agent_id, name, created FROM agents;")
+	rows, err := d.DB().Query("SELECT agent_id, name, owner_user_id, token, created FROM agents;")
 
 	if err != nil {
 		return nil, err
@@ -124,7 +125,7 @@ func (d *PostgresDatabase) GetAllAgents() ([]Agent, error) {
 	for rows.Next() {
 		agent := Agent{}
 
-		if err := rows.Scan(&agent.AgentID, &agent.Name, &agent.Created); err != nil {
+		if err := rows.Scan(&agent.AgentID, &agent.Name, &agent.OwnerUserID, &agent.Token, &agent.Created); err != nil {
 			return nil, err
 		}
 

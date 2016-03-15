@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/go-martini/martini"
 	"github.com/golang/mock/gomock"
 	"github.com/martini-contrib/binding"
@@ -124,12 +125,12 @@ var _ = Describe("Agent resource", func() {
 	})
 
 	Describe("GET agent request handler", func() {
-		var makeRequest = func(render render.Render, db Database, agentID string) {
+		var makeRequest = func(render render.Render, db Database, agentID string, user User) {
 			params := martini.Params{
 				"agent_id": agentID,
 			}
 
-			getAgent(render, params, db, nil)
+			getAgent(render, params, db, user, logrus.NewEntry(logrus.StandardLogger()))
 		}
 
 		var db *MockDatabase
@@ -176,7 +177,25 @@ var _ = Describe("Agent resource", func() {
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 
-				makeRequest(render, db, "1234")
+				makeRequest(render, db, "1234", User{UserID: 5678})
+			})
+		})
+
+		Context("when the user does not own the agent requested", func() {
+			It("returns HTTP 401 response", func() {
+				getAgentCall := db.EXPECT().GetAgentByID(1234).Return(
+					Agent{AgentID: 1234, Name: "The name", OwnerUserID: 5678, Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
+					nil)
+
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					db.EXPECT().CheckAgentIDExists(1234).Return(true, nil),
+					getAgentCall,
+					render.EXPECT().Error(http.StatusUnauthorized),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				makeRequest(render, db, "1234", User{UserID: 9000})
 			})
 		})
 
@@ -190,7 +209,7 @@ var _ = Describe("Agent resource", func() {
 						db.EXPECT().RollbackUncommittedTransaction(),
 					)
 
-					makeRequest(render, db, "5")
+					makeRequest(render, db, "5", User{})
 				})
 			})
 
@@ -202,7 +221,7 @@ var _ = Describe("Agent resource", func() {
 						db.EXPECT().RollbackUncommittedTransaction(),
 					)
 
-					makeRequest(render, db, "abc")
+					makeRequest(render, db, "abc", User{})
 				})
 			})
 		})

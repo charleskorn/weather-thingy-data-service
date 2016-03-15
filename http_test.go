@@ -77,6 +77,18 @@ var _ = Describe("HTTP endpoints", func() {
 		return resp
 	}
 
+	getWithAuthentication := func(url string) *http.Response {
+		request, err := http.NewRequest("GET", url, nil)
+		Expect(err).To(BeNil())
+
+		request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(testUser.Email+":"+testUserPassword)))
+
+		resp, err := http.DefaultClient.Do(request)
+		Expect(err).To(BeNil())
+
+		return resp
+	}
+
 	Describe("/v1/ping", func() {
 		Context("GET", func() {
 			It("responds with 'pong'", func() {
@@ -157,41 +169,60 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/agents/:agent_id", func() {
 		Context("GET", func() {
-			It("returns all details of the agent", func() {
+			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1001, "First agent", 3001, "2015-04-05T03:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1001, "First agent", testUser.UserID, "2015-04-05T03:00:00Z"))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, created) VALUES ($1, $2, $3, $4)", 1002, "Other agent", 3001, "2015-04-05T03:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 1, "2015-04-07T15:00:00Z"))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))
+			})
 
-				resp, err := http.Get(urlFor("/v1/agents/1001"))
+			Context("when not authenticated", func() {
+				It("returns HTTP 401", func() {
+					resp, err := http.Get(urlFor("/v1/agents/1001"))
+					Expect(err).To(BeNil())
+					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+				})
+			})
 
-				Expect(err).To(BeNil())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				Expect(resp.Header).To(haveJSONContentType())
+			Context("when authenticated as a user that does not own the agent", func() {
+				It("returns HTTP 401", func() {
+					resp := getWithAuthentication(urlFor("/v1/agents/1002"))
+					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+				})
+			})
 
-				responseBytes, err := ioutil.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
+			Context("when authenticated as the user that owns the agent", func() {
+				It("returns all details of the agent", func() {
+					resp := getWithAuthentication(urlFor("/v1/agents/1001"))
 
-				var response map[string]interface{}
-				err = json.Unmarshal(responseBytes, &response)
+					Expect(resp.StatusCode).To(Equal(http.StatusOK))
+					Expect(resp.Header).To(haveJSONContentType())
 
-				Expect(err).To(BeNil())
-				Expect(response).To(HaveKeyWithValue("id", float64(1001)))
-				Expect(response).To(HaveKeyWithValue("name", "First agent"))
-				Expect(response).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 5, 3, 0, 0, 0, time.UTC))))
-				Expect(response).To(HaveKey("variables"))
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).To(BeNil())
 
-				variables := response["variables"].([]interface{})
-				Expect(variables).To(HaveLen(1))
+					var response map[string]interface{}
+					err = json.Unmarshal(responseBytes, &response)
 
-				variable := variables[0]
+					Expect(err).To(BeNil())
+					Expect(response).To(HaveKeyWithValue("id", float64(1001)))
+					Expect(response).To(HaveKeyWithValue("name", "First agent"))
+					Expect(response).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 5, 3, 0, 0, 0, time.UTC))))
+					Expect(response).To(HaveKey("variables"))
 
-				Expect(variable).To(HaveKeyWithValue("id", float64(2001)))
-				Expect(variable).To(HaveKeyWithValue("name", "distance"))
-				Expect(variable).To(HaveKeyWithValue("units", "metres"))
-				Expect(variable).To(HaveKeyWithValue("displayDecimalPlaces", float64(1)))
-				Expect(variable).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC))))
+					variables := response["variables"].([]interface{})
+					Expect(variables).To(HaveLen(1))
+
+					variable := variables[0]
+
+					Expect(variable).To(HaveKeyWithValue("id", float64(2001)))
+					Expect(variable).To(HaveKeyWithValue("name", "distance"))
+					Expect(variable).To(HaveKeyWithValue("units", "metres"))
+					Expect(variable).To(HaveKeyWithValue("displayDecimalPlaces", float64(1)))
+					Expect(variable).To(HaveKeyWithValue("created", BeParsableAndEqualTo(time.Date(2015, 4, 7, 15, 0, 0, 0, time.UTC))))
+				})
 			})
 		})
 	})

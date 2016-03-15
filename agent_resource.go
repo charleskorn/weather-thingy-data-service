@@ -56,7 +56,7 @@ func getAllAgents(r render.Render, db Database, log *logrus.Entry) {
 	r.JSON(http.StatusOK, agents)
 }
 
-func getAgent(r render.Render, params martini.Params, db Database, log *logrus.Entry) {
+func getAgent(r render.Render, params martini.Params, db Database, user User, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")
 		r.Error(http.StatusInternalServerError)
@@ -81,6 +81,12 @@ func getAgent(r render.Render, params martini.Params, db Database, log *logrus.E
 	if agent.Agent, err = db.GetAgentByID(agentID); err != nil {
 		log.WithError(err).Error("Could not agent info.")
 		r.Error(http.StatusInternalServerError)
+		return
+	}
+
+	if agent.OwnerUserID != user.UserID {
+		log.Error("User does not own this agent.")
+		r.Error(http.StatusUnauthorized)
 		return
 	}
 

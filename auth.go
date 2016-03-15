@@ -57,3 +57,9 @@ func respondWithAuthenticationFailed(render render.Render, message string) {
 	render.Header().Set("WWW-Authenticate", `Basic realm="`+authenticationRealm+`"`)
 	render.Text(http.StatusUnauthorized, message)
 }
+
+func requireAdminUser(user User, render render.Render, log *logrus.Entry) {
+	if !user.IsAdmin {
+		render.Error(http.StatusForbidden)
+	}
+}

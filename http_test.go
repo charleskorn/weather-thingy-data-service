@@ -31,7 +31,9 @@ var _ = Describe("HTTP endpoints", func() {
 	var testDataSourceName string
 	var db Database
 	var testUser User
+	var adminUser User
 	const testUserPassword string = "TestPassword123"
+	const adminUserPassword string = "AdminPassword123"
 
 	BeforeEach(func() {
 		testDataSourceName = getTestDataSourceName()
@@ -53,8 +55,17 @@ var _ = Describe("HTTP endpoints", func() {
 
 		testUser.SetPassword(testUserPassword)
 
+		adminUser = User{
+			Email:   "adminuser@testing.com",
+			IsAdmin: true,
+			Created: time.Now(),
+		}
+
+		adminUser.SetPassword(adminUserPassword)
+
 		Expect(db.BeginTransaction()).To(Succeed())
 		Expect(db.CreateUser(&testUser)).To(Succeed())
+		Expect(db.CreateUser(&adminUser)).To(Succeed())
 		Expect(db.CommitTransaction()).To(Succeed())
 	})
 
@@ -64,12 +75,8 @@ var _ = Describe("HTTP endpoints", func() {
 		removeTestDatabase(testDataSourceName, false)
 	})
 
-	postWithAuthentication := func(url string, contentType string, body io.Reader) *http.Response {
-		request, err := http.NewRequest("POST", url, body)
-		Expect(err).To(BeNil())
-
-		request.Header.Set("Content-Type", contentType)
-		request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(testUser.Email+":"+testUserPassword)))
+	doRequestWithAuthentication := func(request *http.Request, username string, password string) *http.Response {
+		request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(username+":"+password)))
 
 		resp, err := http.DefaultClient.Do(request)
 		Expect(err).To(BeNil())
@@ -77,16 +84,29 @@ var _ = Describe("HTTP endpoints", func() {
 		return resp
 	}
 
+	postWithAuthentication := func(url string, contentType string, body io.Reader) *http.Response {
+		request, err := http.NewRequest("POST", url, body)
+		Expect(err).To(BeNil())
+
+		request.Header.Set("Content-Type", contentType)
+
+		return doRequestWithAuthentication(request, testUser.Email, testUserPassword)
+	}
+
+	postWithAdminAuthentication := func(url string, contentType string, body io.Reader) *http.Response {
+		request, err := http.NewRequest("POST", url, body)
+		Expect(err).To(BeNil())
+
+		request.Header.Set("Content-Type", contentType)
+
+		return doRequestWithAuthentication(request, adminUser.Email, adminUserPassword)
+	}
+
 	getWithAuthentication := func(url string) *http.Response {
 		request, err := http.NewRequest("GET", url, nil)
 		Expect(err).To(BeNil())
 
-		request.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(testUser.Email+":"+testUserPassword)))
-
-		resp, err := http.DefaultClient.Do(request)
-		Expect(err).To(BeNil())
-
-		return resp
+		return doRequestWithAuthentication(request, testUser.Email, testUserPassword)
 	}
 
 	Describe("/v1/ping", func() {
@@ -303,33 +323,42 @@ var _ = Describe("HTTP endpoints", func() {
 
 	Describe("/v1/variables", func() {
 		Context("POST", func() {
-			It("saves the variable to the database and returns the variable ID", func() {
-				resp, err := http.Post(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
+			Context("when the user is an administrator", func() {
+				It("saves the variable to the database and returns the variable ID", func() {
+					resp := postWithAdminAuthentication(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
 
-				Expect(err).To(BeNil())
-				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
-				Expect(resp.Header).To(haveJSONContentType())
+					Expect(resp.StatusCode).To(Equal(http.StatusCreated))
+					Expect(resp.Header).To(haveJSONContentType())
 
-				responseBytes, err := ioutil.ReadAll(resp.Body)
-				Expect(err).To(BeNil())
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).To(BeNil())
 
-				var response map[string]interface{}
-				err = json.Unmarshal(responseBytes, &response)
+					var response map[string]interface{}
+					err = json.Unmarshal(responseBytes, &response)
 
-				Expect(err).To(BeNil())
-				Expect(response).To(HaveKey("id"))
+					Expect(err).To(BeNil())
+					Expect(response).To(HaveKey("id"))
 
-				id := int(response["id"].(float64))
-				var name, units string
-				var created time.Time
-				var displayDecimalPlaces int
-				row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
-				err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
-				Expect(err).To(BeNil())
-				Expect(name).To(Equal("New variable name"))
-				Expect(units).To(Equal("seconds (s)"))
-				Expect(displayDecimalPlaces).To(Equal(2))
-				Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
+					id := int(response["id"].(float64))
+					var name, units string
+					var created time.Time
+					var displayDecimalPlaces int
+					row := db.DB().QueryRow("SELECT name, units, display_decimal_places, created FROM variables WHERE variable_id = $1;", id)
+					err = row.Scan(&name, &units, &displayDecimalPlaces, &created)
+					Expect(err).To(BeNil())
+					Expect(name).To(Equal("New variable name"))
+					Expect(units).To(Equal("seconds (s)"))
+					Expect(displayDecimalPlaces).To(Equal(2))
+					Expect(created).To(BeTemporally("~", time.Now(), 100*time.Millisecond))
+				})
+			})
+
+			Context("when the user is not an administrator", func() {
+				It("returns a HTTP 403 response", func() {
+					resp := postWithAuthentication(urlFor("/v1/variables"), "application/json", strings.NewReader(`{"name":"New variable name","units":"seconds (s)","displayDecimalPlaces":2}`))
+
+					Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
+				})
 			})
 		})
 	})

@@ -187,7 +187,7 @@ var _ = Describe("Agent resource", func() {
 		})
 
 		Context("when the user does not own the agent requested", func() {
-			It("returns HTTP 401 response", func() {
+			It("returns HTTP 403 response", func() {
 				getAgentCall := db.EXPECT().GetAgentByID(1234).Return(
 					Agent{AgentID: 1234, Name: "The name", OwnerUserID: 5678, Created: time.Date(2015, 3, 27, 8, 0, 0, 0, time.UTC)},
 					nil)
@@ -196,7 +196,7 @@ var _ = Describe("Agent resource", func() {
 					db.EXPECT().BeginTransaction(),
 					db.EXPECT().CheckAgentIDExists(1234).Return(true, nil),
 					getAgentCall,
-					render.EXPECT().Error(http.StatusUnauthorized),
+					render.EXPECT().Error(http.StatusForbidden),
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 

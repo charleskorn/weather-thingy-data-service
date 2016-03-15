@@ -113,7 +113,7 @@ func getAgent(r render.Render, params martini.Params, db Database, user User, lo
 
 	if agent.OwnerUserID != user.UserID {
 		log.Error("User does not own this agent.")
-		r.Error(http.StatusUnauthorized)
+		r.Error(http.StatusForbidden)
 		return
 	}
 

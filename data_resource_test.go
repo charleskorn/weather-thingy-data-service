@@ -289,12 +289,12 @@ var _ = Describe("Data resource", func() {
 		})
 
 		Context("when the user is not the owner of the agent", func() {
-			It("returns a HTTP 401 response", func() {
+			It("returns a HTTP 403 response", func() {
 				gomock.InOrder(
 					db.EXPECT().BeginTransaction(),
 					db.EXPECT().CheckAgentIDExists(1).Return(true, nil),
 					db.EXPECT().GetAgentByID(1).Return(Agent{OwnerUserID: 1000}, nil),
-					render.EXPECT().Error(http.StatusUnauthorized),
+					render.EXPECT().Error(http.StatusForbidden),
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 

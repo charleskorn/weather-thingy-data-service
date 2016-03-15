@@ -189,9 +189,9 @@ var _ = Describe("HTTP endpoints", func() {
 			})
 
 			Context("when authenticated as a user that does not own the agent", func() {
-				It("returns HTTP 401", func() {
+				It("returns HTTP 403", func() {
 					resp := getWithAuthentication(urlFor("/v1/agents/1002"))
-					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+					Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
 				})
 			})
 
@@ -279,9 +279,9 @@ var _ = Describe("HTTP endpoints", func() {
 			})
 
 			Context("when authenticated as a user that does not own the agent", func() {
-				It("returns HTTP 401", func() {
+				It("returns HTTP 403", func() {
 					resp := getWithAuthentication(urlFor("/v1/agents/1005/data"))
-					Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
+					Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
 				})
 			})
 

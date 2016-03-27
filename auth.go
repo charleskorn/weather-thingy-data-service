@@ -92,7 +92,9 @@ func withAuthenticatedAgent(render render.Render, req *http.Request, params mart
 		return
 	}
 
-	if exists, err := db.CheckAgentIDExists(agentID); err != nil {
+	exists := false
+
+	if exists, err = db.CheckAgentIDExists(agentID); err != nil {
 		log.WithError(err).Error("Could not check if agent exists.")
 		render.Error(http.StatusInternalServerError)
 		return

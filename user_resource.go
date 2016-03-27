@@ -1,14 +1,9 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
 	"github.com/Sirupsen/logrus"
 	"github.com/martini-contrib/binding"
 	"github.com/martini-contrib/render"
-	"golang.org/x/crypto/pbkdf2"
-	"golang.org/x/text/unicode/norm"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -29,27 +24,21 @@ type PostUser struct {
 	Password string `json:"password" binding:"required"`
 }
 
-const passwordIterations = 100000
-const saltBytes int = 32
-
 func (user *User) SetPassword(password string) error {
-	salt := make([]byte, saltBytes)
+	var err error
 
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+	if user.PasswordSalt, err = generateHashingSalt(); err != nil {
 		return err
 	}
 
-	user.PasswordIterations = passwordIterations
-	user.PasswordSalt = salt
+	user.PasswordIterations = hashIterations
 	user.PasswordHash = user.ComputePasswordHash(password)
 
 	return nil
 }
 
 func (user *User) ComputePasswordHash(password string) []byte {
-	passwordBytes := norm.NFC.Bytes([]byte(password))
-
-	return pbkdf2.Key(passwordBytes, user.PasswordSalt, user.PasswordIterations, sha256.Size, sha256.New)
+	return computePasswordHash(password, user.PasswordSalt, user.PasswordIterations)
 }
 
 func (user PostUser) Validate(errors binding.Errors, _ *http.Request) binding.Errors {

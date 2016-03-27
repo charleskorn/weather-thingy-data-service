@@ -201,6 +201,26 @@ func db_migrations_0007_agents_table_add_token_sql() (*asset, error) {
 	return a, nil
 }
 
+var _db_migrations_0008_agents_table_hash_token_sql = []byte("\x1f\x8b\x08\x00\x00\x09\x6e\x88\x00\xff\x94\xcf\xb1\x0a\xc2\x30\x10\xc6\xf1\xbd\x4f\x71\xa3\x22\x85\x3a\x77\xba\x36\x01\x85\x98\x48\x48\x04\x27\xc9\x10\xda\xa0\x26\x62\x02\xbe\xbe\xd5\x29\x6e\xe7\x70\xdb\xf7\xe7\xf8\xb5\x2d\x6c\xee\x61\x7a\xba\xe2\xc1\x3e\x1a\x14\x86\x6b\x30\x38\x08\x0e\x6e\xf2\xb1\x64\x40\xc6\x60\x54\xc2\x1e\x24\x94\x74\xf5\xf1\x12\x8a\x5f\xe6\x21\xc5\x0c\x7b\x69\x40\xaa\xe5\xac\x10\x3d\x29\xce\xee\x56\x60\x38\x1b\x8e\x7f\x86\xb3\xcb\x33\x25\x64\x5a\x1d\x7f\xca\xbe\x69\x6a\x24\x4b\xaf\x48\xea\x2a\x27\xed\xd1\xd7\x46\x9c\x7e\x34\x24\x37\x9c\x50\x8f\x3b\xd4\xab\x6d\xd7\xad\x2b\xf9\x3b\x00\x00\xff\xff\x9b\xbc\x46\xc7\xb8\x01\x00\x00")
+
+func db_migrations_0008_agents_table_hash_token_sql_bytes() ([]byte, error) {
+	return bindata_read(
+		_db_migrations_0008_agents_table_hash_token_sql,
+		"db/migrations/0008_agents_table_hash_token.sql",
+	)
+}
+
+func db_migrations_0008_agents_table_hash_token_sql() (*asset, error) {
+	bytes, err := db_migrations_0008_agents_table_hash_token_sql_bytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindata_file_info{name: "db/migrations/0008_agents_table_hash_token.sql", size: 440, mode: os.FileMode(420), modTime: time.Unix(1459057520, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
 // Asset loads and returns the asset for the given name.
 // It returns an error if the asset could not be found or
 // could not be loaded.
@@ -260,6 +280,7 @@ var _bindata = map[string]func() (*asset, error){
 	"db/migrations/0005_agents_table_enforce_name_not_null.sql":         db_migrations_0005_agents_table_enforce_name_not_null_sql,
 	"db/migrations/0006_create_users_table.sql":                         db_migrations_0006_create_users_table_sql,
 	"db/migrations/0007_agents_table_add_token.sql":                     db_migrations_0007_agents_table_add_token_sql,
+	"db/migrations/0008_agents_table_hash_token.sql":                    db_migrations_0008_agents_table_hash_token_sql,
 }
 
 // AssetDir returns the file names below a certain
@@ -312,6 +333,7 @@ var _bintree = &_bintree_t{nil, map[string]*_bintree_t{
 			"0005_agents_table_enforce_name_not_null.sql":         &_bintree_t{db_migrations_0005_agents_table_enforce_name_not_null_sql, map[string]*_bintree_t{}},
 			"0006_create_users_table.sql":                         &_bintree_t{db_migrations_0006_create_users_table_sql, map[string]*_bintree_t{}},
 			"0007_agents_table_add_token.sql":                     &_bintree_t{db_migrations_0007_agents_table_add_token_sql, map[string]*_bintree_t{}},
+			"0008_agents_table_hash_token.sql":                    &_bintree_t{db_migrations_0008_agents_table_hash_token_sql, map[string]*_bintree_t{}},
 		}},
 	}},
 }}

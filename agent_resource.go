@@ -15,24 +15,27 @@ import (
 const tokenBytes = 64
 
 type Agent struct {
-	AgentID     int       `json:"id"`
-	OwnerUserID int       `json:"ownerUserId"`
-	Name        string    `json:"name" binding:"required"`
-	Token       string    `json:"-"`
-	Created     time.Time `json:"created"`
+	AgentID         int       `json:"id"`
+	OwnerUserID     int       `json:"ownerUserId"`
+	Name            string    `json:"name" binding:"required"`
+	TokenIterations int       `json:"-"`
+	TokenSalt       []byte    `json:"-"`
+	TokenHash       []byte    `json:"-"`
+	Created         time.Time `json:"created"`
 }
 
 func postAgent(r render.Render, agent Agent, db Database, user User, log *logrus.Entry) {
 	agent.Created = time.Now()
 	agent.OwnerUserID = user.UserID
+	token, err := generateAgentToken()
 
-	if token, err := generateAgentToken(); err != nil {
+	if err != nil {
 		log.WithError(err).Error("Could not generate agent token.")
 		r.Error(http.StatusInternalServerError)
 		return
-	} else {
-		agent.Token = token
 	}
+
+	agent.SetToken(token)
 
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")
@@ -56,7 +59,7 @@ func postAgent(r render.Render, agent Agent, db Database, user User, log *logrus
 
 	r.JSON(http.StatusCreated, map[string]interface{}{
 		"id":    agent.AgentID,
-		"token": agent.Token,
+		"token": token,
 	})
 }
 
@@ -151,4 +154,21 @@ func extractAgentID(params martini.Params, r render.Render, db Database, log *lo
 	}
 
 	return agentID, true
+}
+
+func (agent *Agent) SetToken(token string) error {
+	var err error
+
+	if agent.TokenSalt, err = generateHashingSalt(); err != nil {
+		return err
+	}
+
+	agent.TokenIterations = hashIterations
+	agent.TokenHash = agent.ComputeTokenHash(token)
+
+	return nil
+}
+
+func (agent *Agent) ComputeTokenHash(token string) []byte {
+	return computePasswordHash(token, agent.TokenSalt, agent.TokenIterations)
 }

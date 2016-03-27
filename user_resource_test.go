@@ -34,7 +34,7 @@ var _ = Describe("User resource", func() {
 
 				user.SetPassword("test")
 
-				Expect(user.PasswordIterations).To(Equal(passwordIterations))
+				Expect(user.PasswordIterations).To(Equal(hashIterations))
 
 				Expect(user.PasswordSalt).ToNot(Equal([]byte("salty")))
 				Expect(user.PasswordSalt).To(HaveLen(saltBytes))

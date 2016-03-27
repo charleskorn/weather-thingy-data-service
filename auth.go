@@ -112,7 +112,7 @@ func withAuthenticatedAgent(render render.Render, req *http.Request, params mart
 
 	token := strings.TrimPrefix(authorizationHeader, prefix)
 
-	if agent.Token != token {
+	if subtle.ConstantTimeCompare(agent.ComputeTokenHash(token), agent.TokenHash) != 1 {
 		log.Error("Authentication failed because the token does not match the agent ID given.")
 		respondWithAgentAuthenticationFailed(render, "Agent ID or token are invalid or incorrect.")
 		return

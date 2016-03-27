@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
@@ -51,4 +52,8 @@ func (matcher *BeParsableAndEqualToMatcher) Match(actual interface{}) (bool, err
 	}
 
 	return t.Equal(matcher.CompareTo), nil
+}
+
+func ExpectSucceeded(_ sql.Result, err error) {
+	Expect(err).To(BeNil())
 }

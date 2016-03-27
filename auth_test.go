@@ -219,9 +219,8 @@ var _ = Describe("Authentication", func() {
 				request.Header.Set("Authorization", "weather-thingy-agent-token something")
 				responseHeaders := http.Header{}
 
-				agent := Agent{
-					Token: "somethingelse",
-				}
+				agent := Agent{}
+				agent.SetToken("somethingelse")
 
 				gomock.InOrder(
 					db.EXPECT().BeginTransaction(),
@@ -244,9 +243,8 @@ var _ = Describe("Authentication", func() {
 				request.Header.Set("Authorization", "weather-thingy-agent-token thetoken")
 				context := NewTestContext()
 
-				agent := Agent{
-					Token: "thetoken",
-				}
+				agent := Agent{}
+				agent.SetToken("thetoken")
 
 				gomock.InOrder(
 					db.EXPECT().BeginTransaction(),

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"crypto/sha256"
 	"github.com/Sirupsen/logrus"
 	"github.com/go-martini/martini"
 	"github.com/golang/mock/gomock"
@@ -27,6 +28,44 @@ var _ = Describe("Agent resource", func() {
 	})
 
 	Describe("data structure", func() {
+		Describe("SetToken", func() {
+			It("should set the token hash, the salt and the number of hashing iterations", func() {
+				agent := Agent{
+					TokenIterations: 0,
+					TokenSalt:       []byte("salty"),
+					TokenHash:       []byte("token"),
+				}
+
+				agent.SetToken("test")
+
+				Expect(agent.TokenIterations).To(Equal(hashIterations))
+
+				Expect(agent.TokenSalt).ToNot(Equal([]byte("salty")))
+				Expect(agent.TokenSalt).To(HaveLen(saltBytes))
+
+				Expect(agent.TokenHash).ToNot(Equal([]byte("token")))
+				Expect(agent.TokenHash).To(HaveLen(sha256.Size))
+			})
+		})
+
+		Describe("ComputeTokenHash", func() {
+			agent := Agent{
+				TokenIterations: 10000,
+				TokenSalt:       []byte("salty"),
+			}
+
+			It("should return a result of the expected size", func() {
+				Expect(agent.ComputeTokenHash("token")).To(HaveLen(sha256.Size))
+			})
+
+			It("should return different results for different tokens", func() {
+				hash1 := agent.ComputeTokenHash("token1")
+				hash2 := agent.ComputeTokenHash("token2")
+
+				Expect(hash1).ToNot(Equal(hash2))
+			})
+		})
+
 		It("can be serialised to JSON", func() {
 			agent := Agent{AgentID: 1039, Name: "Cool agent", OwnerUserID: 2456, Created: time.Date(2015, 3, 26, 14, 35, 0, 0, time.UTC)}
 
@@ -73,27 +112,33 @@ var _ = Describe("Agent resource", func() {
 		})
 
 		It("saves the agent to the database and returns the ID of the newly created agent", func() {
+			var createdAgent Agent
 			agentId := 1019
-			token := ""
 			user := User{UserID: 2349}
 
 			createCall := db.EXPECT().CreateAgent(gomock.Any()).Do(func(agent *Agent) error {
 				Expect(agent.Name).To(Equal("New agent name"))
 				Expect(agent.AgentID).To(Equal(0))
 				Expect(agent.Created).ToNot(BeTemporally("==", time.Time{}))
-				Expect(agent.Token).ToNot(BeEmpty())
+				Expect(agent.TokenIterations).ToNot(BeZero())
+				Expect(len(agent.TokenSalt)).To(BeNumerically(">", 0))
+				Expect(len(agent.TokenHash)).To(BeNumerically(">", 0))
 				Expect(agent.OwnerUserID).To(Equal(user.UserID))
 
 				agent.AgentID = agentId
 
-				token = agent.Token
+				createdAgent = *agent
 
 				return nil
 			})
 
 			jsonCall := render.EXPECT().JSON(http.StatusCreated, gomock.Any()).Do(func(status int, value interface{}) {
 				Expect(value).To(HaveKeyWithValue("id", agentId))
-				Expect(value).To(HaveKeyWithValue("token", token))
+				Expect(value).To(HaveKey("token"))
+
+				tokenInJson := value.(map[string]interface{})["token"].(string)
+
+				Expect(createdAgent.ComputeTokenHash(tokenInJson)).To(Equal(createdAgent.TokenHash))
 			})
 
 			gomock.InOrder(

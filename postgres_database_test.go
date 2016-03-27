@@ -241,13 +241,17 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(agents[0].AgentID).To(Equal(1001))
 				Expect(agents[0].Name).To(Equal("First agent"))
 				Expect(agents[0].OwnerUserID).To(Equal(3001))
-				Expect(agents[0].Token).To(Equal("token1001"))
+				Expect(agents[0].TokenIterations).To(Equal(12301))
+				Expect(agents[0].TokenSalt).To(Equal([]byte("salt1001")))
+				Expect(agents[0].TokenHash).To(Equal([]byte("hash1001")))
 				Expect(agents[0].Created).To(BeTemporally("==", time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC)))
 
 				Expect(agents[1].AgentID).To(Equal(1002))
 				Expect(agents[1].Name).To(Equal("Second agent"))
 				Expect(agents[1].OwnerUserID).To(Equal(3001))
-				Expect(agents[1].Token).To(Equal("token1002"))
+				Expect(agents[1].TokenIterations).To(Equal(12302))
+				Expect(agents[1].TokenSalt).To(Equal([]byte("salt1002")))
+				Expect(agents[1].TokenHash).To(Equal([]byte("hash1002")))
 				Expect(agents[1].Created).To(BeTemporally("==", time.Date(2015, 2, 16, 20, 0, 0, 0, time.UTC)))
 			})
 		})
@@ -434,7 +438,9 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(agent.AgentID).To(Equal(1001))
 				Expect(agent.Name).To(Equal("First agent"))
 				Expect(agent.OwnerUserID).To(Equal(3001))
-				Expect(agent.Token).To(Equal("token1001"))
+				Expect(agent.TokenIterations).To(Equal(12301))
+				Expect(agent.TokenSalt).To(Equal([]byte("salt1001")))
+				Expect(agent.TokenHash).To(Equal([]byte("hash1001")))
 				Expect(agent.Created).To(BeTemporally("==", time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC)))
 			})
 
@@ -572,14 +578,10 @@ func removeTestDatabase(dataSourceName string, recreate bool) {
 	}
 }
 
-func ExpectSucceeded(_ sql.Result, err error) {
-	Expect(err).To(BeNil())
-}
-
 func CreateTestData(db Database) {
 	ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin, created) VALUES ($1, $2, $3, $4, $5, $6, $7)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false, "2015-03-30 11:58:00+10:00"))
-	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token, created) VALUES ($1, $2, $3, $4, $5)", 1001, "First agent", 3001, "token1001", "2015-03-30 12:00:00+10:00"))
-	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token, created) VALUES ($1, $2, $3, $4, $5)", 1002, "Second agent", 3001, "token1002", "2015-02-17 08:00:00+12:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token_iterations, token_salt, token_hash, created) VALUES ($1, $2, $3, $4, $5, $6, $7)", 1001, "First agent", 3001, 12301, []byte("salt1001"), []byte("hash1001"), "2015-03-30 12:00:00+10:00"))
+	ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, owner_user_id, token_iterations, token_salt, token_hash, created) VALUES ($1, $2, $3, $4, $5, $6, $7)", 1002, "Second agent", 3001, 12302, []byte("salt1002"), []byte("hash1002"), "2015-02-17 08:00:00+12:00"))
 	ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2001, "distance", "metres", 2, "2015-04-07T15:00:00Z"))
 	ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places, created) VALUES ($1, $2, $3, $4, $5)", 2002, "humidity", "%", 2, "2015-04-07T15:00:00Z"))
 	ExpectSucceeded(db.DB().Exec("INSERT INTO data (agent_id, variable_id, value, time) VALUES ($1, $2, $3, $4)", 1001, 2001, 100, "2015-04-07T15:00:00Z"))

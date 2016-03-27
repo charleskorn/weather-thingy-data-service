@@ -102,6 +102,19 @@ var _ = Describe("HTTP endpoints", func() {
 		return doRequestWithAuthentication(request, adminUser.Email, adminUserPassword)
 	}
 
+	postWithAgentAuthentication := func(url string, contentType string, body io.Reader, agentToken string) *http.Response {
+		request, err := http.NewRequest("POST", url, body)
+		Expect(err).To(BeNil())
+
+		request.Header.Set("Content-Type", contentType)
+		request.Header.Set("Authorization", "weather-thingy-agent-token "+agentToken)
+
+		resp, err := http.DefaultClient.Do(request)
+		Expect(err).To(BeNil())
+
+		return resp
+	}
+
 	getWithAuthentication := func(url string) *http.Response {
 		request, err := http.NewRequest("GET", url, nil)
 		Expect(err).To(BeNil())
@@ -253,13 +266,12 @@ var _ = Describe("HTTP endpoints", func() {
 		Context("POST", func() {
 			BeforeEach(func() {
 				ExpectSucceeded(db.DB().Exec("INSERT INTO users (user_id, email, password_iterations, password_salt, password_hash, is_admin) VALUES ($1, $2, $3, $4, $5, $6)", 3001, "blah@blah.com", 0, []byte{}, []byte{}, false))
-				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1004, "Test Agent 1", "doesnotmatter", 3001))
+				ExpectSucceeded(db.DB().Exec("INSERT INTO agents (agent_id, name, token, owner_user_id) VALUES ($1, $2, $3, $4);", 1004, "Test Agent 1", "agent1token", 3001))
 				ExpectSucceeded(db.DB().Exec("INSERT INTO variables (variable_id, name, units, display_decimal_places) VALUES ($1, $2, $3, $4);", 1005, "distance", "metres", 1))
 			})
 
 			It("saves the data to the database", func() {
-				resp, err := http.Post(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`))
-				Expect(err).To(BeNil())
+				resp := postWithAgentAuthentication(urlFor("/v1/agents/1004/data"), "application/json", strings.NewReader(`{"time":"2015-05-06T10:15:30Z","data":[{"variable":"distance","value":10.5}]}`), "agent1token")
 				Expect(resp.StatusCode).To(Equal(http.StatusCreated))
 
 				responseBytes, err := ioutil.ReadAll(resp.Body)

@@ -123,20 +123,15 @@ var _ = Describe("Data resource", func() {
 	})
 
 	Describe("POST request handler", func() {
-		var makeRequest = func(data PostDataPoints, agentID string, render render.Render, db Database) {
-			params := martini.Params{"agent_id": agentID}
-
-			postDataPoints(render, data, params, db, nil)
-		}
-
 		var db *MockDatabase
 		var render *MockRender
-		existentAgentID := "10"
-		validData := PostDataPoints{
-			Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
-			Data: []PostDataPoint{
-				{Variable: "temperature", Value: 10.5},
-			},
+
+		agent := Agent{
+			AgentID: 10,
+		}
+
+		var makeRequest = func(data PostDataPoints) {
+			postDataPoints(render, data, agent, db, nil)
 		}
 
 		BeforeEach(func() {
@@ -146,8 +141,15 @@ var _ = Describe("Data resource", func() {
 
 		Describe("when the request is valid", func() {
 			It("saves the data point to the database and returns HTTP 201 response", func() {
+				data := PostDataPoints{
+					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+					Data: []PostDataPoint{
+						{Variable: "temperature", Value: 10.5},
+					},
+				}
+
 				createCall := db.EXPECT().AddDataPoint(DataPoint{
-					AgentID:    10,
+					AgentID:    agent.AgentID,
 					VariableID: 12,
 					Value:      10.5,
 					Time:       time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
@@ -155,7 +157,6 @@ var _ = Describe("Data resource", func() {
 
 				gomock.InOrder(
 					db.EXPECT().BeginTransaction(),
-					db.EXPECT().CheckAgentIDExists(10).Return(true, nil),
 					db.EXPECT().GetVariableIDForName("temperature").Return(12, nil),
 					createCall,
 					db.EXPECT().CommitTransaction(),
@@ -163,64 +164,29 @@ var _ = Describe("Data resource", func() {
 					db.EXPECT().RollbackUncommittedTransaction(),
 				)
 
-				makeRequest(validData, existentAgentID, render, db)
+				makeRequest(data)
 			})
 		})
 
 		Describe("when the request is invalid", func() {
-			TheRequestFailsWithCode := func(data PostDataPoints, agentID string, responseCode int) {
-				It(fmt.Sprintf("does not save the variable to the database and returns HTTP %v response", responseCode), func() {
-					render.EXPECT().Text(responseCode, gomock.Any())
-
-					makeRequest(data, agentID, render, db)
-				})
-			}
-
-			TheRequestFails := func(data PostDataPoints, agentID string) {
-				TheRequestFailsWithCode(data, agentID, http.StatusBadRequest)
-			}
-
-			Describe("because the agent ID is not an integer", func() {
-				BeforeEach(func() {
-					gomock.InOrder(
-						db.EXPECT().BeginTransaction(),
-						db.EXPECT().RollbackUncommittedTransaction(),
-					)
-				})
-
-				TheRequestFailsWithCode(validData, "abc", http.StatusNotFound)
-			})
-
-			Describe("because the agent ID does not match any known agent", func() {
-				BeforeEach(func() {
-					gomock.InOrder(
-						db.EXPECT().BeginTransaction(),
-						db.EXPECT().CheckAgentIDExists(909090).Return(false, nil),
-						db.EXPECT().RollbackUncommittedTransaction(),
-					)
-				})
-
-				TheRequestFailsWithCode(validData, "909090", http.StatusNotFound)
-			})
-
 			Describe("because the variable name does not match any known variable", func() {
-				BeforeEach(func() {
+				It("does not save the variable to the database and returns HTTP 400 response", func() {
+					data := PostDataPoints{
+						Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
+						Data: []PostDataPoint{
+							{Variable: "nothing", Value: 10.5},
+						},
+					}
+
 					gomock.InOrder(
 						db.EXPECT().BeginTransaction(),
-						db.EXPECT().CheckAgentIDExists(10).Return(true, nil),
 						db.EXPECT().GetVariableIDForName("nothing").Return(-1, errors.New("Doesn't exisit")),
+						render.EXPECT().Text(http.StatusBadRequest, gomock.Any()),
 						db.EXPECT().RollbackUncommittedTransaction(),
 					)
+
+					makeRequest(data)
 				})
-
-				data := PostDataPoints{
-					Time: time.Date(2015, 5, 6, 10, 15, 30, 0, time.UTC),
-					Data: []PostDataPoint{
-						{Variable: "nothing", Value: 10.5},
-					},
-				}
-
-				TheRequestFails(data, existentAgentID)
 			})
 		})
 	})

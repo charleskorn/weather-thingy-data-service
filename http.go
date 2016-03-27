@@ -38,8 +38,9 @@ func startServer(config Config) {
 				g.Post("/variables", requireAdminUser, binding.Bind(Variable{}), postVariable)
 			}, withAuthenticatedUser)
 
+			g.Post("/agents/:agent_id/data", withAuthenticatedAgent, binding.Bind(PostDataPoints{}), postDataPoints)
+
 			g.Get("/agents", getAllAgents)
-			g.Post("/agents/:agent_id/data", binding.Bind(PostDataPoints{}), postDataPoints)
 			g.Post("/users", binding.Bind(PostUser{}), postUser)
 		}, withDatabaseConnection)
 	})

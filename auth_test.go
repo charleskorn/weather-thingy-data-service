@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/Sirupsen/logrus"
+	"github.com/go-martini/martini"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -139,6 +140,126 @@ var _ = Describe("Authentication", func() {
 				render.EXPECT().Error(http.StatusForbidden)
 
 				requireAdminUser(user, render, logger)
+			})
+		})
+	})
+
+	Context("withAuthenticatedAgent", func() {
+		Context("when no authorisation header is provided", func() {
+			It("returns HTTP 401 and sets the WWW-Authenticate header", func() {
+				params := martini.Params{}
+				responseHeaders := http.Header{}
+
+				render.EXPECT().Text(http.StatusUnauthorized, gomock.Any())
+				render.EXPECT().Header().Return(responseHeaders)
+
+				withAuthenticatedAgent(render, request, params, db, logger, nil)
+
+				Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`weather-thingy-agent-token`))
+			})
+		})
+
+		Context("when an authentication header for a different authentication method is provided", func() {
+			It("returns HTTP 401 and sets the WWW-Authenticate header", func() {
+				params := martini.Params{}
+				request.Header.Set("Authorization", "SomeOtherAuthMethod something")
+				responseHeaders := http.Header{}
+
+				render.EXPECT().Text(http.StatusUnauthorized, gomock.Any())
+				render.EXPECT().Header().Return(responseHeaders)
+
+				withAuthenticatedAgent(render, request, params, db, logger, nil)
+
+				Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`weather-thingy-agent-token`))
+			})
+		})
+
+		Context("when the agent ID is not an integer", func() {
+			It("returns HTTP 401 and sets the WWW-Authenticate header", func() {
+				params := martini.Params{"agent_id": "abc123"}
+				request.Header.Set("Authorization", "weather-thingy-agent-token something")
+				responseHeaders := http.Header{}
+
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					render.EXPECT().Header().Return(responseHeaders),
+					render.EXPECT().Text(http.StatusUnauthorized, gomock.Any()),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				withAuthenticatedAgent(render, request, params, db, logger, nil)
+
+				Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`weather-thingy-agent-token`))
+			})
+		})
+
+		Context("when the agent does not exist", func() {
+			It("returns HTTP 401 and sets the WWW-Authenticate header", func() {
+				params := martini.Params{"agent_id": "123"}
+				request.Header.Set("Authorization", "weather-thingy-agent-token something")
+				responseHeaders := http.Header{}
+
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					db.EXPECT().CheckAgentIDExists(123).Return(false, nil),
+					render.EXPECT().Header().Return(responseHeaders),
+					render.EXPECT().Text(http.StatusUnauthorized, gomock.Any()),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				withAuthenticatedAgent(render, request, params, db, logger, nil)
+
+				Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`weather-thingy-agent-token`))
+			})
+		})
+
+		Context("when the token provided does not match the agent's token", func() {
+			It("returns HTTP 401 and sets the WWW-Authenticate header", func() {
+				params := martini.Params{"agent_id": "123"}
+				request.Header.Set("Authorization", "weather-thingy-agent-token something")
+				responseHeaders := http.Header{}
+
+				agent := Agent{
+					Token: "somethingelse",
+				}
+
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					db.EXPECT().CheckAgentIDExists(123).Return(true, nil),
+					db.EXPECT().GetAgentByID(123).Return(agent, nil),
+					render.EXPECT().Header().Return(responseHeaders),
+					render.EXPECT().Text(http.StatusUnauthorized, gomock.Any()),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				withAuthenticatedAgent(render, request, params, db, logger, nil)
+
+				Expect(responseHeaders.Get("WWW-Authenticate")).To(Equal(`weather-thingy-agent-token`))
+			})
+		})
+
+		Context("when the token provided does match the agent's token", func() {
+			It("does not render a response and sets the agent in the request context", func() {
+				params := martini.Params{"agent_id": "123"}
+				request.Header.Set("Authorization", "weather-thingy-agent-token thetoken")
+				context := NewTestContext()
+
+				agent := Agent{
+					Token: "thetoken",
+				}
+
+				gomock.InOrder(
+					db.EXPECT().BeginTransaction(),
+					db.EXPECT().CheckAgentIDExists(123).Return(true, nil),
+					db.EXPECT().GetAgentByID(123).Return(agent, nil),
+					db.EXPECT().RollbackUncommittedTransaction(),
+				)
+
+				withAuthenticatedAgent(render, request, params, db, logger, context)
+
+				agentType := reflect.TypeOf(Agent{})
+				agentFromContext := context.Get(agentType)
+				Expect(agentFromContext.Interface().(Agent)).To(Equal(agent))
 			})
 		})
 	})

@@ -434,6 +434,7 @@ var _ = Describe("PostgresDatabase", func() {
 				Expect(agent.AgentID).To(Equal(1001))
 				Expect(agent.Name).To(Equal("First agent"))
 				Expect(agent.OwnerUserID).To(Equal(3001))
+				Expect(agent.Token).To(Equal("token1001"))
 				Expect(agent.Created).To(BeTemporally("==", time.Date(2015, 3, 30, 2, 0, 0, 0, time.UTC)))
 			})
 

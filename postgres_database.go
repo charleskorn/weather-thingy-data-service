@@ -282,9 +282,9 @@ func (d *PostgresDatabase) GetAgentByID(agentID int) (Agent, error) {
 	}
 
 	agent := Agent{}
-	row := d.CurrentTransaction.QueryRow("SELECT agent_id, name, owner_user_id, created FROM agents WHERE agent_id = $1;", agentID)
+	row := d.CurrentTransaction.QueryRow("SELECT agent_id, name, owner_user_id, token, created FROM agents WHERE agent_id = $1;", agentID)
 
-	if err := row.Scan(&agent.AgentID, &agent.Name, &agent.OwnerUserID, &agent.Created); err != nil {
+	if err := row.Scan(&agent.AgentID, &agent.Name, &agent.OwnerUserID, &agent.Token, &agent.Created); err != nil {
 		return Agent{}, err
 	}
 

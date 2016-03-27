@@ -41,7 +41,7 @@ type GetDataResultVariable struct {
 	Points               map[string]float64 `json:"points"`
 }
 
-func postDataPoints(render render.Render, data PostDataPoints, params martini.Params, db Database, log *logrus.Entry) {
+func postDataPoints(render render.Render, data PostDataPoints, agent Agent, db Database, log *logrus.Entry) {
 	if err := db.BeginTransaction(); err != nil {
 		log.WithError(err).Error("Could not begin database transaction.")
 		render.Error(http.StatusInternalServerError)
@@ -49,12 +49,6 @@ func postDataPoints(render render.Render, data PostDataPoints, params martini.Pa
 	}
 
 	defer db.RollbackUncommittedTransaction()
-
-	agentID, ok := extractAgentID(params, render, db, log)
-
-	if !ok {
-		return
-	}
 
 	for _, point := range data.Data {
 		variableID, err := db.GetVariableIDForName(point.Variable)
@@ -69,7 +63,7 @@ func postDataPoints(render render.Render, data PostDataPoints, params martini.Pa
 			return
 		}
 
-		if err := db.AddDataPoint(DataPoint{AgentID: agentID, VariableID: variableID, Value: point.Value, Time: data.Time}); err != nil {
+		if err := db.AddDataPoint(DataPoint{AgentID: agent.AgentID, VariableID: variableID, Value: point.Value, Time: data.Time}); err != nil {
 			log.WithError(err).Error("Could not save data.")
 			render.Error(http.StatusInternalServerError)
 			return

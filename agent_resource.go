@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-const tokenBytes = 64
+const tokenBytes = 45
 
 type Agent struct {
 	AgentID         int       `json:"id"`
